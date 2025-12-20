@@ -8,7 +8,7 @@ class WelcomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white, // Couleur principale [User request]
+      backgroundColor: Colors.white,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 30.0),
@@ -16,23 +16,24 @@ class WelcomeScreen extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const Spacer(),
-              // Nom de l'application
-              const Text(
-                'YOBULMA',
-                style: TextStyle(
-                  fontSize: 45,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black, // Couleur secondaire [User request]
-                  letterSpacing: 2,
-                ),
+
+              // Image du logo
+              Image.asset(
+                'lib/images/YOBULMA LOGO_Plan de travail 1.png',
+                height: 320, // Tu peux ajuster la taille ici
+                fit: BoxFit.contain,
               ),
-              const SizedBox(height: 10),
+
+              const SizedBox(height: 20),
+
               const Text(
                 'La livraison de confiance à Dakar',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.grey, fontSize: 16),
               ),
+
               const Spacer(),
+
               // Bouton Se Connecter
               SizedBox(
                 width: double.infinity,
@@ -45,7 +46,7 @@ class WelcomeScreen extends StatelessWidget {
                     ),
                   ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.black, // Couleur secondaire
+                    backgroundColor: Colors.black,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -58,6 +59,7 @@ class WelcomeScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 15),
+
               // Bouton S'inscrire
               SizedBox(
                 width: double.infinity,
@@ -70,10 +72,7 @@ class WelcomeScreen extends StatelessWidget {
                     ),
                   ),
                   style: OutlinedButton.styleFrom(
-                    side: const BorderSide(
-                      color: Color(0xFFFF9800),
-                      width: 2,
-                    ), // Orange [User request]
+                    side: const BorderSide(color: Color(0xFFFF9800), width: 2),
                     foregroundColor: const Color(0xFFFF9800),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),

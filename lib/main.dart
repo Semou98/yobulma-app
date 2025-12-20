@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:yoboulma_app/chatbot_khady.dart';
+import 'package:yoboulma_app/screens/auth/login_screen.dart';
+import 'package:yoboulma_app/screens/auth/register_screen.dart';
 import 'screens/auth/welcome_screen.dart';
 import 'screens/admin/dashboard_screen.dart';
 import 'screens/vendeur/orders_list_screen.dart';
@@ -6,14 +9,9 @@ import 'screens/livreur/batches_list_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() async {
-  // Indispensable pour utiliser SharedPreferences avant runApp
   WidgetsFlutterBinding.ensureInitialized();
-
-  // On récupère l'instance de la mémoire locale
   final prefs = await SharedPreferences.getInstance();
-  // On cherche si un rôle a été enregistré (ex: "VENDEUR")
   final String? savedRole = prefs.getString('user_role');
-
   runApp(YobulmaApp(initialRole: savedRole));
 }
 
@@ -28,13 +26,37 @@ class YobulmaApp extends StatelessWidget {
       title: 'Yobulma',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        scaffoldBackgroundColor: Colors.white, // Blanc principal
+        scaffoldBackgroundColor: Colors.white,
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFFFF9800), // Orange tertiaire
-          primary: Colors.black, // Noir secondaire
+          seedColor: const Color(0xFFFF9800),
+          primary: Colors.black,
         ),
       ),
-      // Si on a un rôle en mémoire, on va direct à la page, sinon Welcome
+      // Utilisation du builder pour injecter Khady partout
+      builder: (context, child) {
+        return KhadyChatWrapper(child: child!);
+      },
+      // Important pour l'exclusion : donnez des noms à vos routes de base
+      onGenerateRoute: (settings) {
+        Widget page;
+        switch (settings.name) {
+          case '/welcome':
+            page = const WelcomeScreen();
+            break;
+          case '/login':
+            page = const LoginScreen();
+            break;
+          case '/register':
+            page = const RegisterScreen();
+            break;
+          default:
+            page = _getHome(initialRole);
+        }
+        return MaterialPageRoute(
+          builder: (context) => page,
+          settings: settings,
+        );
+      },
       home: _getHome(initialRole),
     );
   }

@@ -10,12 +10,23 @@ class BatchRepository {
 
   // Get available batches (for livreur)
   Stream<List<BatchModel>> getAvailableBatches() {
-    return _firestoreService.getAvailableBatches();
+    // Utilisez getBatchesByStatus avec le statut pending
+    return _firestoreService.getBatchesByStatus(BatchStatus.pending);
+  }
+
+  // Get batches by status
+  Stream<List<BatchModel>> getBatchesByStatus(BatchStatus status) {
+    return _firestoreService.getBatchesByStatus(status);
   }
 
   // Get batches by livreur
   Stream<List<BatchModel>> getBatchesByLivreur(String livreurId) {
     return _firestoreService.getBatchesByLivreur(livreurId);
+  }
+
+  // Get active batches (not completed)
+  Stream<List<BatchModel>> getActiveBatches() {
+    return _firestoreService.getActiveBatches();
   }
 
   // Get batch by ID
@@ -49,14 +60,55 @@ class BatchRepository {
     final batch = await getBatchById(batchId);
     if (batch == null) return [];
 
-    final List<OrderModel> orders = [];
-    for (final orderId in batch.orderIds) {
-      final order = await _firestoreService.getOrder(orderId);
-      if (order != null) {
-        orders.add(order);
+    // Utilisez la méthode spécialisée du FirestoreService si elle existe
+    try {
+      return await _firestoreService.getOrdersByBatch(batchId);
+    } catch (e) {
+      // Fallback: récupérer chaque commande individuellement
+      final List<OrderModel> orders = [];
+      for (final orderId in batch.orderIds) {
+        final order = await _firestoreService.getOrder(orderId);
+        if (order != null) {
+          orders.add(order);
+        }
       }
+      return orders;
     }
-    return orders;
+  }
+
+  // Get pending batches count
+  Stream<int> getPendingBatchesCount() {
+    return _firestoreService.getBatchesByStatus(BatchStatus.pending)
+      .map((batches) => batches.length);
+  }
+
+  // Get active batches count for livreur
+  Stream<int> getActiveBatchesCountForLivreur(String livreurId) {
+    return _firestoreService.getBatchesByLivreur(livreurId)
+      .map((batches) => batches
+        .where((batch) => batch.status != BatchStatus.completed)
+        .length);
+  }
+
+  // Get batch status summary
+  Future<Map<BatchStatus, int>> getBatchStatusSummary() async {
+    try {
+      final pending = await _firestoreService.getBatchesByStatus(BatchStatus.pending).first;
+      final enCours = await _firestoreService.getBatchesByStatus(BatchStatus.enCours).first;
+      final completed = await _firestoreService.getBatchesByStatus(BatchStatus.completed).first;
+      
+      return {
+        BatchStatus.pending: pending.length,
+        BatchStatus.enCours: enCours.length,
+        BatchStatus.completed: completed.length,
+      };
+    } catch (e) {
+      print('Error getting batch status summary: $e');
+      return {
+        BatchStatus.pending: 0,
+        BatchStatus.enCours: 0,
+        BatchStatus.completed: 0,
+      };
+    }
   }
 }
-

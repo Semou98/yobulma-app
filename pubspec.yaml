@@ -5,50 +5,47 @@ publish_to: 'none'
 version: 1.0.0+1
 
 environment:
-  sdk: ^3.8.0
+  sdk: ">=3.8.0 <4.0.0"
 
 dependencies:
   flutter:
     sdk: flutter
 
-  # UI & Icons
+  # UI & Design
   cupertino_icons: ^1.0.8
-  google_fonts: ^6.1.0
+  google_fonts: ^6.3.3
 
-  # Firebase
-  firebase_core: ^3.6.0
-  firebase_auth: ^5.3.1
-  cloud_firestore: ^5.4.4
-  firebase_messaging: ^15.1.3
-  firebase_storage: ^12.3.4
+  # Firebase (versions mises à jour)
+  firebase_core: ^3.15.2
+  firebase_auth: ^5.7.0
+  cloud_firestore: ^5.6.12
+  firebase_messaging: ^15.2.10
+  firebase_storage: ^12.4.10
 
-  # Maps & Location
-  google_maps_flutter: ^2.9.0
-  geolocator: ^13.0.1
+  # Maps & Location - Solution OpenStreetMap
+  flutter_map: ^5.0.0
+  latlong2: ^0.9.0
+  geolocator: ^13.0.4  # Version mise à jour
   geocoding: ^3.0.0
+  url_launcher: ^6.3.2
 
-  # State Management
-  provider: ^6.1.2
-
-  # Routing & Navigation
-  go_router: ^14.2.0
+  # State Management & Navigation
+  provider: ^6.1.5+1
+  go_router: ^14.8.1
 
   # HTTP & API
-  http: ^1.2.2
-  dio: ^5.4.2+1
+  http: ^1.6.0
+  dio: ^5.9.0
 
-  # Utils
+  # Utils & Storage
   intl: ^0.19.0
-  uuid: ^4.5.1
-  shared_preferences: ^2.3.2
-  url_launcher: ^6.3.1
-  permission_handler: ^11.3.1
+  uuid: ^4.5.2
+  shared_preferences: ^2.5.4
+  permission_handler: ^11.4.0
+  image_picker: ^1.2.1
 
   # OTP & Security
-  otp: 3.2.0
-
-  # Image Picker
-  image_picker: ^1.1.2
+  otp: ^3.2.0
 
 dev_dependencies:
   flutter_test:
@@ -57,3 +54,6 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
+  assets:
+    - assets/images/logo_yoboulma.png

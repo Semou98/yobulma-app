@@ -1,5 +1,5 @@
 import 'dart:math';
-import '../utils/constants.dart';
+import '../utils/app_constants.dart';
 
 class OTPService {
   // Generate random OTP code

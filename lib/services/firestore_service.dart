@@ -17,9 +17,10 @@ class FirestoreService {
   // Create order
   Future<String?> createOrder(OrderModel order) async {
     try {
-      final docRef = await _orders.add(order.toFirestore());
-      return docRef.id;
+      await _orders.doc(order.id).set(order.toFirestore());
+      return order.id;
     } catch (e) {
+      print('Error creating order: $e');
       return null;
     }
   }
@@ -33,6 +34,7 @@ class FirestoreService {
       }
       return null;
     } catch (e) {
+      print('Error getting order: $e');
       return null;
     }
   }
@@ -49,6 +51,7 @@ class FirestoreService {
       }
       return null;
     } catch (e) {
+      print('Error getting order by tracking code: $e');
       return null;
     }
   }
@@ -68,12 +71,39 @@ class FirestoreService {
   Future<List<OrderModel>> getPendingOrders() async {
     try {
       final query = await _orders
-          .where('status', isEqualTo: OrderStatus.enAttenteDeLivreur.toString().split('.').last)
+          .where('status', isEqualTo: OrderStatus.enAttenteDeLivreur.name)
           .get();
       return query.docs
           .map((doc) => OrderModel.fromFirestore(doc))
           .toList();
     } catch (e) {
+      print('Error getting pending orders: $e');
+      return [];
+    }
+  }
+
+  // Get orders by status
+  Stream<List<OrderModel>> getOrdersByStatus(OrderStatus status) {
+    return _orders
+        .where('status', isEqualTo: status.name)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => OrderModel.fromFirestore(doc))
+            .toList());
+  }
+
+  // Get orders by batch ID
+  Future<List<OrderModel>> getOrdersByBatch(String batchId) async {
+    try {
+      final query = await _orders
+          .where('batchId', isEqualTo: batchId)
+          .get();
+      return query.docs
+          .map((doc) => OrderModel.fromFirestore(doc))
+          .toList();
+    } catch (e) {
+      print('Error getting orders by batch: $e');
       return [];
     }
   }
@@ -84,6 +114,7 @@ class FirestoreService {
       await _orders.doc(order.id).update(order.toFirestore());
       return true;
     } catch (e) {
+      print('Error updating order: $e');
       return false;
     }
   }
@@ -93,9 +124,10 @@ class FirestoreService {
   // Create batch
   Future<String?> createBatch(BatchModel batch) async {
     try {
-      final docRef = await _batches.add(batch.toFirestore());
-      return docRef.id;
+      await _batches.doc(batch.id).set(batch.toFirestore());
+      return batch.id;
     } catch (e) {
+      print('Error creating batch: $e');
       return null;
     }
   }
@@ -109,18 +141,25 @@ class FirestoreService {
       }
       return null;
     } catch (e) {
+      print('Error getting batch: $e');
       return null;
     }
   }
 
-  // Get available batches for livreur
-  Stream<List<BatchModel>> getAvailableBatches() {
+  // Get batches by status
+  Stream<List<BatchModel>> getBatchesByStatus(BatchStatus status) {
     return _batches
-        .where('status', isEqualTo: BatchStatus.pending.toString().split('.').last)
+        .where('status', isEqualTo: status.name)
+        .orderBy('createdAt', descending: true)
         .snapshots()
         .map((snapshot) => snapshot.docs
             .map((doc) => BatchModel.fromFirestore(doc))
             .toList());
+  }
+
+  // Get available batches for livreur (alias pour getBatchesByStatus avec pending)
+  Stream<List<BatchModel>> getAvailableBatches() {
+    return getBatchesByStatus(BatchStatus.pending);
   }
 
   // Get batches by livreur
@@ -140,8 +179,38 @@ class FirestoreService {
       await _batches.doc(batch.id).update(batch.toFirestore());
       return true;
     } catch (e) {
+      print('Error updating batch: $e');
       return false;
     }
+  }
+
+  // Get all active batches
+  Stream<List<BatchModel>> getActiveBatches() {
+    return _batches
+        .where('status', isNotEqualTo: BatchStatus.completed.name)
+        .orderBy('status')
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => BatchModel.fromFirestore(doc))
+            .toList());
+  }
+
+  // Get batches with multiple statuses
+  Stream<List<BatchModel>> getBatchesWithStatuses(List<BatchStatus> statuses) {
+    if (statuses.isEmpty) {
+      return const Stream.empty();
+    }
+
+    // Pour plusieurs statuts, nous devons faire une requête par statut
+    // ou utiliser une autre approche selon les besoins
+    return _batches
+        .where('status', whereIn: statuses.map((s) => s.name).toList())
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => BatchModel.fromFirestore(doc))
+            .toList());
   }
 
   // ========== USERS ==========
@@ -150,13 +219,14 @@ class FirestoreService {
   Future<List<UserModel>> getActiveLivreurs() async {
     try {
       final query = await _users
-          .where('role', isEqualTo: UserRole.livreur.toString().split('.').last)
+          .where('role', isEqualTo: UserRole.livreur.name)
           .where('isActive', isEqualTo: true)
           .get();
       return query.docs
           .map((doc) => UserModel.fromFirestore(doc))
           .toList();
     } catch (e) {
+      print('Error getting active livreurs: $e');
       return [];
     }
   }
@@ -170,8 +240,89 @@ class FirestoreService {
       }
       return null;
     } catch (e) {
+      print('Error getting user: $e');
       return null;
     }
   }
-}
 
+  // Update user
+  Future<bool> updateUser(UserModel user) async {
+    try {
+      await _users.doc(user.id).update(user.toFirestore());
+      return true;
+    } catch (e) {
+      print('Error updating user: $e');
+      return false;
+    }
+  }
+
+  // Get user by phone number
+  Future<UserModel?> getUserByPhone(String phone) async {
+    try {
+      final query = await _users
+          .where('phone', isEqualTo: phone)
+          .limit(1)
+          .get();
+      if (query.docs.isNotEmpty) {
+        return UserModel.fromFirestore(query.docs.first);
+      }
+      return null;
+    } catch (e) {
+      print('Error getting user by phone: $e');
+      return null;
+    }
+  }
+
+  // Create user
+  Future<bool> createUser(UserModel user) async {
+    try {
+      await _users.doc(user.id).set(user.toFirestore());
+      return true;
+    } catch (e) {
+      print('Error creating user: $e');
+      return false;
+    }
+  }
+
+  // Get users by role
+  Future<List<UserModel>> getUsersByRole(UserRole role) async {
+    try {
+      final query = await _users
+          .where('role', isEqualTo: role.name)
+          .get();
+      return query.docs
+          .map((doc) => UserModel.fromFirestore(doc))
+          .toList();
+    } catch (e) {
+      print('Error getting users by role: $e');
+      return [];
+    }
+  }
+
+  // Search users by name or phone
+  Future<List<UserModel>> searchUsers(String queryText) async {
+    try {
+      // Note: Firestore n'a pas de recherche texte complète native
+      // Ceci est une recherche basique par préfixe
+      final byName = await _users
+          .where('fullName', isGreaterThanOrEqualTo: queryText)
+          .where('fullName', isLessThanOrEqualTo: queryText + '\uf8ff')
+          .get();
+
+      final byPhone = await _users
+          .where('phone', isGreaterThanOrEqualTo: queryText)
+          .where('phone', isLessThanOrEqualTo: queryText + '\uf8ff')
+          .get();
+
+      final allDocs = {...byName.docs, ...byPhone.docs};
+      final uniqueDocs = allDocs.toSet().toList();
+
+      return uniqueDocs
+          .map((doc) => UserModel.fromFirestore(doc))
+          .toList();
+    } catch (e) {
+      print('Error searching users: $e');
+      return [];
+    }
+  }
+}

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:provider/provider.dart';
 import 'firebase_options.dart';
 import 'app.dart';
+import 'app_state.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -11,14 +13,17 @@ void main() async {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
-    debugPrint('Firebase initialisé avec succès');
+    debugPrint('✅ Firebase initialisé avec succès');
   } catch (e) {
     // Si Firebase n'est pas configuré, on continue quand même
-    // pour permettre le développement de l'UI
     debugPrint('⚠️ Erreur Firebase: $e');
-    debugPrint('💡 Note: Exécutez "flutterfire configure" pour configurer Firebase correctement');
-    debugPrint('   L\'application continuera à fonctionner mais Firebase ne sera pas disponible');
+    debugPrint('💡 Application en mode hors ligne');
   }
   
-  runApp(const YoboulmaApp());
+  runApp(
+    ChangeNotifierProvider(
+      create: (context) => AppState()..initialize(),
+      child: const YoboulmaApp(),
+    ),
+  );
 }

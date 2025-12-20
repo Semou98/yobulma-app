@@ -11,7 +11,7 @@ enum OrderStatus {
   enRoute, // EN_ROUTE
   arriveADestination, // ARRIVÉ_A_DESTINATION
   livre, // LIVRÉ
-  cancelled, // Annulé
+  cancelled, enCoursDeLivraison, ready, preparing, accepted, pending, onDelivery, delivered, annule, // Annulé
 }
 
 enum BatchStatus {

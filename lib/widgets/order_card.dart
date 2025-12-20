@@ -77,7 +77,7 @@ class OrderCard extends StatelessWidget {
                 children: [
                   Text(
                     '${NumberFormat.currency(symbol: '', decimalDigits: 0).format(order.deliveryPrice)} FCFA',
-                    style: AppTextStyles.body.copyWith(
+                    style: AppTextStyles.body?.copyWith(
                       fontWeight: FontWeight.bold,
                       color: AppColors.primary,
                     ),

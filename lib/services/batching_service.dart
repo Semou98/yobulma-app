@@ -1,10 +1,10 @@
 import '../models/order_model.dart';
+import '../utils/app_constants.dart';
 import '../models/batch_model.dart';
 import '../services/firestore_service.dart';
 import '../services/routing_service.dart';
 import '../services/otp_service.dart';
 import '../utils/enums.dart';
-import '../utils/constants.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:uuid/uuid.dart';
 
@@ -17,7 +17,7 @@ class BatchingService {
     try {
       // Get all pending orders
       final pendingOrders = await _firestoreService.getPendingOrders();
-      
+
       if (pendingOrders.isEmpty) {
         return [];
       }
@@ -25,10 +25,13 @@ class BatchingService {
       // Group orders by quartier
       final Map<String, List<OrderModel>> ordersByQuartier = {};
       for (final order in pendingOrders) {
-        if (!ordersByQuartier.containsKey(order.quartier)) {
-          ordersByQuartier[order.quartier] = [];
+        final quartier = order.quartier;
+        if (quartier != null) {
+          if (!ordersByQuartier.containsKey(quartier)) {
+            ordersByQuartier[quartier] = [];
+          }
+          ordersByQuartier[quartier]!.add(order);
         }
-        ordersByQuartier[order.quartier]!.add(order);
       }
 
       final List<String> batchIds = [];
@@ -36,10 +39,17 @@ class BatchingService {
       // Create batches for each quartier
       for (final quartier in ordersByQuartier.keys) {
         final quartierOrders = ordersByQuartier[quartier]!;
-        
+
         // Split into batches of max size
-        for (int i = 0; i < quartierOrders.length; i += AppConstants.maxOrdersPerBatch) {
-          final orderGroup = quartierOrders.skip(i).take(AppConstants.maxOrdersPerBatch).toList();
+        for (
+          int i = 0;
+          i < quartierOrders.length;
+          i += AppConstants.maxOrdersPerBatch.toInt()
+        ) {
+          final orderGroup = quartierOrders
+              .skip(i)
+              .take(AppConstants.maxOrdersPerBatch)
+              .toList();
           if (orderGroup.isEmpty) continue;
 
           // Extract delivery locations (only if available)
@@ -52,7 +62,7 @@ class BatchingService {
           List<GeoPoint> optimizedRoute = [];
           double? distance;
           double? duration;
-          
+
           if (deliveryLocations.isNotEmpty) {
             optimizedRoute = RoutingService.optimizeRoute(deliveryLocations);
             distance = RoutingService.calculateRouteDistance(optimizedRoute);
@@ -64,7 +74,9 @@ class BatchingService {
             id: _uuid.v4(),
             orderIds: orderGroup.map((order) => order.id).toList(),
             status: BatchStatus.pending,
-            startLocation: deliveryLocations.isNotEmpty ? deliveryLocations.first : null,
+            startLocation: deliveryLocations.isNotEmpty
+                ? deliveryLocations.first
+                : null,
             deliveryLocations: deliveryLocations,
             optimizedRoute: optimizedRoute,
             estimatedDistance: distance,
@@ -85,13 +97,16 @@ class BatchingService {
               final otpExpiresAt = OTPService.getOTPExpiration();
 
               // Generate tracking code and link if not exists
-              final trackingCode = order.trackingCode ?? _generateTrackingCode();
-              final trackingLink = order.trackingLink ?? _generateTrackingLink(trackingCode);
+              final trackingCode =
+                  order.trackingCode ?? _generateTrackingCode();
+              final trackingLink =
+                  order.trackingLink ?? _generateTrackingLink(trackingCode);
 
               await _firestoreService.updateOrder(
                 order.copyWith(
                   batchId: batchId,
-                  status: OrderStatus.enAttenteDeLivreur, // Reste en attente jusqu'à acceptation par livreur
+                  status: OrderStatus
+                      .enAttenteDeLivreur, // Reste en attente jusqu'à acceptation par livreur
                   otpCode: otpCode,
                   otpExpiresAt: otpExpiresAt,
                   trackingCode: trackingCode,
@@ -145,6 +160,7 @@ class BatchingService {
 
       return true;
     } catch (e) {
+      print('Error assigning batch to livreur: $e');
       return false;
     }
   }
@@ -178,6 +194,7 @@ class BatchingService {
 
       return true;
     } catch (e) {
+      print('Error starting batch delivery: $e');
       return false;
     }
   }
@@ -198,8 +215,24 @@ class BatchingService {
 
       return true;
     } catch (e) {
+      print('Error completing batch delivery: $e');
       return false;
     }
+  }
+
+  // Get available batches for livreur
+  Stream<List<BatchModel>> getAvailableBatches() {
+    return _firestoreService.getBatchesByStatus(BatchStatus.pending);
+  }
+
+  // Get batches assigned to livreur
+  Stream<List<BatchModel>> getBatchesByLivreur(String livreurId) {
+    return _firestoreService.getBatchesByLivreur(livreurId);
+  }
+
+  // Get batch by ID
+  Future<BatchModel?> getBatchById(String batchId) async {
+    return await _firestoreService.getBatch(batchId);
   }
 
   // Generate unique tracking code
@@ -213,4 +246,3 @@ class BatchingService {
     return 'https://yoboulma.app/track/$trackingCode';
   }
 }
-

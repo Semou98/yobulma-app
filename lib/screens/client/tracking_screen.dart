@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
+import 'package:yoboulma_app/models/order_model.dart';
+
 import '../../repositories/order_repository.dart';
 import '../../utils/constants.dart';
 import '../../utils/enums.dart';
-import 'package:intl/intl.dart';
-
 
 class TrackingScreen extends StatefulWidget {
   final String trackingCode;
@@ -27,7 +28,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
       appBar: AppBar(
         title: const Text('Suivi de commande'),
       ),
-      body: FutureBuilder(
+      body: FutureBuilder<OrderModel?>(
         future: orderRepo.getOrderByTrackingCode(widget.trackingCode),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -63,12 +64,12 @@ class _TrackingScreenState extends State<TrackingScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Commande ${order.trackingCode}',
+                  'Commande ${order.trackingCode ?? "N/A"}',
                   style: AppTextStyles.heading2,
                 ),
                 const SizedBox(height: AppSpacing.lg),
                 // Timeline
-                _buildTimeline(order.status),
+                _buildTimeline(order),
                 const SizedBox(height: AppSpacing.lg),
                 // Order details
                 Card(
@@ -85,34 +86,38 @@ class _TrackingScreenState extends State<TrackingScreen> {
                         _DetailRow(
                           icon: Icons.person,
                           label: 'Client',
-                          value: order.clientName,
+                          value: order.clientName ?? 'N/A',
                         ),
                         _DetailRow(
                           icon: Icons.phone,
                           label: 'Téléphone',
-                          value: order.clientPhone,
+                          value: order.clientPhone ?? 'N/A',
                         ),
                         _DetailRow(
                           icon: Icons.location_city,
                           label: 'Quartier',
-                          value: order.quartier,
+                          value: order.quartier ?? 'N/A',
                         ),
                         _DetailRow(
                           icon: Icons.location_on,
                           label: 'Adresse',
-                          value: order.deliveryAddress,
+                          value: order.deliveryAddress ?? 'N/A',
                         ),
                         _DetailRow(
                           icon: Icons.description,
                           label: 'Description',
-                          value: order.description,
+                          value: order.description ?? 'N/A',
                         ),
-                        if (order.createdAt != null)
-                          _DetailRow(
-                            icon: Icons.calendar_today,
-                            label: 'Date de création',
-                            value: DateFormat('dd/MM/yyyy HH:mm').format(order.createdAt),
-                          ),
+                        _DetailRow(
+                          icon: Icons.money,
+                          label: 'Prix de livraison',
+                          value: '${order.deliveryPrice?.toStringAsFixed(2) ?? "0.00"} FCFA',
+                        ),
+                        _DetailRow(
+                          icon: Icons.calendar_today,
+                          label: 'Date de création',
+                          value: DateFormat('dd/MM/yyyy HH:mm').format(order.createdAt),
+                        ),
                         if (order.deliveredAt != null)
                           _DetailRow(
                             icon: Icons.check_circle,
@@ -131,7 +136,18 @@ class _TrackingScreenState extends State<TrackingScreen> {
     );
   }
 
-  Widget _buildTimeline(OrderStatus currentStatus) {
+  Widget _buildTimeline(OrderModel order) {
+    // Convertir le string status en OrderStatus enum
+    OrderStatus currentStatus;
+    try {
+      currentStatus = OrderStatus.values.firstWhere(
+        (e) => e.toString().split('.').last == order.status,
+        orElse: () => OrderStatus.enAttenteDeLivreur,
+      );
+    } catch (e) {
+      currentStatus = OrderStatus.enAttenteDeLivreur;
+    }
+
     final steps = [
       {
         'status': OrderStatus.enAttenteDeLivreur,
@@ -173,37 +189,41 @@ class _TrackingScreenState extends State<TrackingScreen> {
             final isCompleted = index <= currentIndex;
             final isCurrent = index == currentIndex;
 
-            return Row(
+            return Column(
               children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: isCompleted
-                        ? (isCurrent ? AppColors.primary : AppColors.success)
-                        : AppColors.textSecondary.withOpacity(0.3),
-                  ),
-                  child: Icon(
-                    step['icon'] as IconData,
-                    color: Colors.white,
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.md),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        step['label'] as String,
-                        style: TextStyle(
-                          fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
-                          color: isCompleted ? AppColors.textPrimary : AppColors.textSecondary,
-                        ),
+                Row(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: isCompleted
+                            ? (isCurrent ? AppColors.primary : AppColors.success)
+                            : AppColors.textSecondary.withOpacity(0.3),
                       ),
-                    ],
-                  ),
+                      child: Icon(
+                        step['icon'] as IconData,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.md),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            step['label'] as String,
+                            style: TextStyle(
+                              fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
+                              color: isCompleted ? AppColors.textPrimary : AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
                 if (index < steps.length - 1)
                   Container(
@@ -263,4 +283,3 @@ class _DetailRow extends StatelessWidget {
     );
   }
 }
-

@@ -25,12 +25,12 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
   final _deliveryAddressController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _deliveryPriceController = TextEditingController();
-  final _amountController = TextEditingController(); // AJOUTÉ pour le montant
+  final _amountController = TextEditingController();
   final DeliveryApiService _deliveryApiService = DeliveryApiService();
-  bool _isCalculatingPrice = false;
-  double? _estimatedDeliveryPrice;
+  
   String? _selectedQuartier;
   bool _isLoading = false;
+  bool _isCalculatingPrice = false;
   LocationPoint? _deliveryLocation;
   final FocusNode _phoneFocus = FocusNode();
   final FocusNode _addressFocus = FocusNode();
@@ -42,7 +42,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
     _deliveryAddressController.dispose();
     _descriptionController.dispose();
     _deliveryPriceController.dispose();
-    _amountController.dispose(); // AJOUTÉ
+    _amountController.dispose();
     _phoneFocus.dispose();
     _addressFocus.dispose();
     super.dispose();
@@ -69,8 +69,6 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
         _deliveryLocation = location;
       });
       
-      // Mettre à jour le champ d'adresse
-      // MODIFIÉ pour éviter les erreurs
       if (location.address != null && location.address!.isNotEmpty) {
         _deliveryAddressController.text = location.address!;
       } else {
@@ -78,6 +76,58 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
             'Lat: ${location.latitude.toStringAsFixed(6)}, '
             'Lng: ${location.longitude.toStringAsFixed(6)}';
       }
+      
+      // Estimer automatiquement le prix après la sélection de l'adresse
+      if (_selectedQuartier != null && location.address != null) {
+        _estimateDeliveryPrice();
+      }
+    }
+  }
+
+  Future<void> _estimateDeliveryPrice() async {
+    if (_deliveryLocation == null || _selectedQuartier == null) return;
+    
+    // Vérifier si le montant est valide
+    final amount = double.tryParse(_amountController.text) ?? 0.0;
+    if (amount <= 0) {
+      _showErrorSnackbar('Veuillez d\'abord entrer un montant valide');
+      return;
+    }
+    
+    setState(() => _isCalculatingPrice = true);
+    
+    try {
+      // Position par défaut du vendeur (à adapter selon votre logique)
+      // Pour l'instant, on utilise une position centrale de Dakar
+      const double vendeurLat = 14.716677;
+      const double vendeurLng = -17.467686;
+      
+      // Calculer la distance avec l'API
+      final distance = await _deliveryApiService.calculateDistance(
+        startLat: vendeurLat,
+        startLng: vendeurLng,
+        endLat: _deliveryLocation!.latitude,
+        endLng: _deliveryLocation!.longitude,
+      );
+      
+      // Estimer le prix
+      final estimatedPrice = await _deliveryApiService.estimateDeliveryPrice(
+        distance: distance,
+        quartier: _selectedQuartier!,
+        orderAmount: amount,
+      );
+      
+      setState(() {
+        _deliveryPriceController.text = estimatedPrice.toStringAsFixed(0);
+      });
+      
+      _showSuccessSnackbar('Prix estimé: ${estimatedPrice.toStringAsFixed(0)} FCFA');
+      
+    } catch (e) {
+      print('Error estimating price: $e');
+      _showErrorSnackbar('Impossible d\'estimer le prix automatiquement');
+    } finally {
+      setState(() => _isCalculatingPrice = false);
     }
   }
 
@@ -106,7 +156,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
 
       final orderRepo = context.read<OrderRepository>();
       final deliveryPrice = double.tryParse(_deliveryPriceController.text) ?? 0.0;
-      final amount = double.tryParse(_amountController.text) ?? 0.0; // AJOUTÉ
+      final amount = double.tryParse(_amountController.text) ?? 0.0;
 
       final orderId = await orderRepo.createOrder(
         vendeurId: user.uid,
@@ -115,14 +165,14 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
         clientPhone: _clientPhoneController.text.trim(),
         quartier: _selectedQuartier!,
         deliveryAddress: _deliveryAddressController.text.trim(),
-        deliveryLocation: GeoPoint( // CORRIGÉ: Créez un GeoPoint
+        deliveryLocation: GeoPoint(
           _deliveryLocation!.latitude,
           _deliveryLocation!.longitude,
         ),
-        deliveryLocationPoint: _deliveryLocation!, // AJOUTÉ: LocationPoint
+        deliveryLocationPoint: _deliveryLocation!,
         description: _descriptionController.text.trim(),
         deliveryPrice: deliveryPrice,
-        amount: amount, // AJOUTÉ
+        amount: amount,
       );
 
       if (orderId != null && mounted) {
@@ -338,7 +388,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
                       ),
                       const SizedBox(height: AppSpacing.md),
 
-                      // AJOUTÉ: Montant de la commande
+                      // Montant de la commande
                       _buildTextField(
                         controller: _amountController,
                         label: 'Montant de la commande (FCFA)',
@@ -565,6 +615,26 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
                                         ),
                                         onPressed: _selectLocationOnMap,
                                       ),
+                                      if (_amountController.text.isNotEmpty)
+                                        IconButton(
+                                          icon: _isCalculatingPrice
+                                              ? const SizedBox(
+                                                  width: 20,
+                                                  height: 20,
+                                                  child: CircularProgressIndicator(
+                                                    strokeWidth: 2,
+                                                  ),
+                                                )
+                                              : Icon(
+                                                  Icons.auto_awesome,
+                                                  color: AppColors.primary,
+                                                  size: 20,
+                                                ),
+                                          onPressed: _isCalculatingPrice
+                                              ? null
+                                              : _estimateDeliveryPrice,
+                                          tooltip: 'Estimer le prix',
+                                        ),
                                     ],
                                   ),
                                   const SizedBox(height: AppSpacing.sm),
@@ -582,7 +652,6 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
                                       fontSize: 12,
                                     ),
                                   ),
-                                  // MODIFIÉ pour vérifier correctement l'adresse
                                   if (_deliveryLocation!.address != null && 
                                       _deliveryLocation!.address!.isNotEmpty) ...[
                                     const SizedBox(height: AppSpacing.sm),
@@ -633,23 +702,81 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
                       ),
                       const SizedBox(height: AppSpacing.md),
 
-                      // Prix de livraison
-                      _buildTextField(
-                        controller: _deliveryPriceController,
-                        label: 'Prix de livraison (FCFA)',
-                        hintText: 'Ex: 1500',
-                        icon: Icons.attach_money_outlined,
-                        keyboardType: TextInputType.number,
-                        suffixText: 'FCFA',
-                        validator: (value) {
-                          if (value != null && value.isNotEmpty) {
-                            final price = double.tryParse(value);
-                            if (price == null || price < 0) {
-                              return 'Prix invalide';
-                            }
-                          }
-                          return null;
-                        },
+                      // Prix de livraison avec bouton d'estimation
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _buildTextField(
+                                  controller: _deliveryPriceController,
+                                  label: 'Prix de livraison (FCFA)',
+                                  hintText: 'Ex: 1500',
+                                  icon: Icons.attach_money_outlined,
+                                  keyboardType: TextInputType.number,
+                                  suffixText: 'FCFA',
+                                  validator: (value) {
+                                    if (value != null && value.isNotEmpty) {
+                                      final price = double.tryParse(value);
+                                      if (price == null || price < 0) {
+                                        return 'Prix invalide';
+                                      }
+                                    }
+                                    return null;
+                                  },
+                                ),
+                              ),
+                              if (_deliveryLocation != null && 
+                                  _selectedQuartier != null &&
+                                  _amountController.text.isNotEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.only(
+                                    left: AppSpacing.md,
+                                    top: AppSpacing.lg,
+                                  ),
+                                  child: SizedBox(
+                                    height: 56,
+                                    child: ElevatedButton.icon(
+                                      onPressed: _isCalculatingPrice
+                                          ? null
+                                          : _estimateDeliveryPrice,
+                                      icon: _isCalculatingPrice
+                                          ? const SizedBox(
+                                              width: 20,
+                                              height: 20,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                                color: Colors.white,
+                                              ),
+                                            )
+                                          : const Icon(Icons.auto_awesome, size: 20),
+                                      label: const Text('Estimer'),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: AppColors.primary,
+                                        foregroundColor: Colors.white,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: AppBorderRadius.md,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                          if (_isCalculatingPrice)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8, left: 8),
+                              child: Text(
+                                'Estimation en cours...',
+                                style: TextStyle(
+                                  color: AppColors.primary,
+                                  fontSize: 12,
+                                  fontStyle: FontStyle.italic,
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
                       const SizedBox(height: AppSpacing.xl),
 

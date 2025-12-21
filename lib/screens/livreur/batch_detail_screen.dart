@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:yoboulma_app/models/location_model.dart';
 import 'package:yoboulma_app/screens/livreur/active_delivery_screen.dart';
 import '../../models/batch_model.dart';
 import '../../services/api_service.dart';
@@ -30,7 +31,16 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
     print("Appel API pour les commandes: ${widget.batch.orderIds}");
 
     try {
-      final data = await _apiService.getOptimalRoute(widget.batch.orderIds);
+      final data = await _apiService.getOptimalRoute(
+        // Position fictive du livreur (à remplacer par le GPS réel plus tard)
+        Location(
+          latitude: 14.6928,
+          longitude: -17.4467,
+          quartier: "Départ",
+          adresse: "Ma Position",
+        ),
+        widget.batch.deliveries,
+      );
 
       // LOG 1: Voir le JSON brut reçu
       print("JSON REÇU DE L'API: $data");
@@ -43,7 +53,7 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
       }
 
       setState(() {
-        _points = _apiService.extractPolylinePoints(data);
+        //_points = _apiService.extractPolylinePoints(data);
 
         // LOG 3: Vérifier les points extraits
         print("Nombre de points GPS extraits pour la carte: ${_points.length}");

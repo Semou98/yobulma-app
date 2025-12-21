@@ -49,6 +49,8 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
         deliveryLocation: Location(
           quartier: _selectedQuartier,
           adresse: _addressController.text,
+          latitude: 0.0,
+          longitude: 0.0,
         ),
         colisDescription: _descController.text,
         otp: generatedOtp,

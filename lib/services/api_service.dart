@@ -1,48 +1,71 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:latlong2/latlong.dart'; // Pour les objets LatLng
+import '../models/order_model.dart';
+import '../models/location_model.dart';
 
 class ApiService {
-  static const String defaultUrlAndroidEmulator = 'http://10.0.2.2:8000';
-  static const String defaultUrlWeb = 'http://localhost:8000';
+  static const String apiBaseUrl = 'https://delevery-api-mgd9.onrender.com';
 
-  Future<String> _getUrl() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('api_url') ?? defaultUrlWeb;
-  }
+  Future<Map<String, dynamic>> getOptimalRoute(
+    Location courierPos,
+    List<Order> orders,
+  ) async {
+    // 1. Préparation du body selon le schéma Pydantic de l'API
+    final Map<String, dynamic> requestBody = {
+      "courier": {"lat": courierPos.latitude, "lon": courierPos.longitude},
+      "deliveries": orders.map((order) {
+        final String numericId = order.id.replaceAll(RegExp(r'[^0-9]'), '');
+        final int idAsInt = int.tryParse(numericId) ?? 0;
+        return {
+          "id": idAsInt, // L'API recevra un entier
+          "lat": order.deliveryLocation.latitude,
+          "lon": order.deliveryLocation.longitude,
+        };
+      }).toList(),
+    };
 
-  // 1. Appel à l'API pour récupérer le trajet Dijkstra
-  Future<Map<String, dynamic>> getOptimalRoute(List<String> orderIds) async {
-    final baseUrl = await _getUrl();
     final response = await http.post(
-      Uri.parse('$baseUrl/delivery-tour'),
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-      body: jsonEncode({'order_ids': orderIds}),
+      Uri.parse('$apiBaseUrl/delivery-tour'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(requestBody),
     );
 
     if (response.statusCode == 200) {
       return jsonDecode(response.body);
     } else {
-      throw Exception('Erreur API');
+      print("Erreur API: ${response.body}");
+      throw Exception('Erreur lors du calcul de l\'itinéraire');
     }
   }
 
-  // 2. Extraction des points pour tracer la ligne orange sur la carte
-  List<LatLng> extractPolylinePoints(Map<String, dynamic> apiResponse) {
-    List<LatLng> points = [];
+  // Extraction des segments pour la carte
+  Map<String, List<LatLng>> extractRouteSegments(
+    Map<String, dynamic> apiResponse,
+  ) {
+    List<LatLng> firstSegment = [];
+    List<LatLng> others = [];
+
     if (apiResponse['steps'] != null) {
-      for (var step in apiResponse['steps']) {
-        var coords = step['route_geojson']['coordinates'];
-        for (var c in coords) {
-          // GeoJSON est [Lon, Lat], Leaflet veut [Lat, Lon]
-          points.add(LatLng(c[1], c[0]));
+      final steps = apiResponse['steps'] as List;
+
+      for (int i = 0; i < steps.length; i++) {
+        var coords = steps[i]['route_geojson']['coordinates'] as List;
+        // Conversion GeoJSON [lon, lat] -> LatLng(lat, lon)
+        List<LatLng> points = coords.map((c) => LatLng(c[1], c[0])).toList();
+
+        if (i == 0) {
+          firstSegment.addAll(points);
+        } else {
+          // On ajoute les points aux segments restants
+          others.addAll(points);
         }
       }
     }
-    return points;
+    return {'first': firstSegment, 'others': others};
   }
 }

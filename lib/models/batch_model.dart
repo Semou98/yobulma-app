@@ -1,4 +1,7 @@
 import 'package:yoboulma_app/core/enums.dart';
+import 'package:yoboulma_app/data/mock_data.dart';
+import 'package:yoboulma_app/models/order_model.dart';
+import 'package:yoboulma_app/models/route_step.dart';
 
 class Batch {
   final String id;
@@ -6,6 +9,7 @@ class Batch {
   final List<String> orderIds;
   BatchStatus status;
   final String? livreurId;
+  final List<RouteStep>? optimizedSteps;
   final double? totalDistanceMeter;
   final int maxOrders;
   final String vendorName;
@@ -22,6 +26,7 @@ class Batch {
     required this.deliveryFee,
     this.livreurId,
     this.totalDistanceMeter,
+    this.optimizedSteps,
     this.maxOrders = 5,
     required this.createdAt,
     required this.updatedAt,
@@ -30,6 +35,36 @@ class Batch {
   bool get isFull => orderIds.length >= maxOrders;
   bool get isAvailable => status == BatchStatus.DISPONIBLE && !isFull;
   int get orderCount => orderIds.length;
+  List<Order> get deliveries =>
+      MockData.orders.where((order) => orderIds.contains(order.id)).toList();
+
+  Batch copyWithSteps(List<RouteStep> steps) {
+    double totalDist = steps.fold(0, (sum, step) => sum + step.distanceMeters);
+    return copyWith(optimizedSteps: steps, totalDistanceMeter: totalDist);
+  }
+
+  Batch copyWith({
+    List<String>? orderIds,
+    BatchStatus? status,
+    String? livreurId,
+    List<RouteStep>? optimizedSteps,
+    double? totalDistanceMeter,
+  }) {
+    return Batch(
+      id: id,
+      quartier: quartier,
+      orderIds: orderIds ?? this.orderIds,
+      status: status ?? this.status,
+      vendorName: vendorName,
+      deliveryFee: deliveryFee,
+      livreurId: livreurId ?? this.livreurId,
+      totalDistanceMeter: totalDistanceMeter ?? this.totalDistanceMeter,
+      optimizedSteps: optimizedSteps ?? this.optimizedSteps,
+      maxOrders: maxOrders,
+      createdAt: createdAt,
+      updatedAt: DateTime.now(),
+    );
+  }
 
   factory Batch.fromJson(Map<String, dynamic> json) {
     return Batch(
@@ -57,24 +92,5 @@ class Batch {
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
     };
-  }
-
-  Batch copyWith({
-    List<String>? orderIds,
-    BatchStatus? status,
-    String? livreurId,
-  }) {
-    return Batch(
-      id: id,
-      quartier: quartier,
-      orderIds: orderIds ?? this.orderIds,
-      status: status ?? this.status,
-      vendorName: vendorName,
-      deliveryFee: deliveryFee,
-      livreurId: livreurId ?? this.livreurId,
-      maxOrders: maxOrders,
-      createdAt: createdAt,
-      updatedAt: DateTime.now(),
-    );
   }
 }

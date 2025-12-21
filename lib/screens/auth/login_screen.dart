@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:yoboulma_app/models/order_model.dart';
 import 'package:yoboulma_app/screens/livreur/batches_list_screen.dart';
 import 'package:yoboulma_app/screens/vendeur/orders_list_screen.dart';
 import '../../data/mock_data.dart';

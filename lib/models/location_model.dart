@@ -9,8 +9,8 @@ class Location {
     required this.quartier,
     required this.adresse,
     this.details,
-    this.latitude,
-    this.longitude,
+    required this.latitude,
+    required this.longitude,
   });
 
   factory Location.fromJson(Map<String, dynamic> json) {
@@ -18,8 +18,8 @@ class Location {
       quartier: json['quartier'],
       adresse: json['adresse'],
       details: json['details'],
-      latitude: json['latitude'],
-      longitude: json['longitude'],
+      latitude: (json['latitude'] as num).toDouble(),
+      longitude: (json['longitude'] as num).toDouble(),
     );
   }
 
@@ -28,8 +28,8 @@ class Location {
       'quartier': quartier,
       'adresse': adresse,
       'details': details,
-      'latitude': latitude,
-      'longitude': longitude,
+      'lat': latitude, // Adapté au format attendu par ton API (lat/lon)
+      'lon': longitude,
     };
   }
 }

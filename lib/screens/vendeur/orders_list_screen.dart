@@ -113,7 +113,7 @@ class _OrderListScreenState extends State<OrderListScreen> {
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                   Text(
-                    order.id,
+                    order.id.toString(),
                     style: const TextStyle(fontSize: 12, color: Colors.grey),
                   ),
                 ],

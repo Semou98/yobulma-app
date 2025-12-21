@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-
-import 'package:flutter/material.dart';
 import '../../data/mock_data.dart';
 import '../../models/order_model.dart';
 import '../../models/batch_model.dart';
@@ -39,7 +37,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     for (var order in pendingOrders) {
       groups
           .putIfAbsent(order.deliveryLocation.quartier, () => [])
-          .add(order.id);
+          .add(order.id.toString());
     }
 
     // 3. Création des nouveaux lots dans MockData

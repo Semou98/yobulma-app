@@ -6,78 +6,101 @@ import 'package:yoboulma_app/screens/livreur/active_delivery_screen.dart';
 import '../../models/batch_model.dart';
 import '../../services/api_service.dart';
 
-class BatchDetailScreen extends StatefulWidget {
+class DeliveryMapScreen extends StatefulWidget {
   final Batch batch;
-  const BatchDetailScreen({super.key, required this.batch});
+  const DeliveryMapScreen({super.key, required this.batch});
 
   @override
-  State<BatchDetailScreen> createState() => _BatchDetailScreenState();
+  State<DeliveryMapScreen> createState() => _DeliveryMapScreenState();
 }
 
-class _BatchDetailScreenState extends State<BatchDetailScreen> {
+class _DeliveryMapScreenState extends State<DeliveryMapScreen> {
   final ApiService _apiService = ApiService();
-  List<LatLng> _points = [];
-  bool _loading = true;
-  String _distance = "0";
+  final MapController _mapController = MapController();
+
+  List<LatLng> _firstSegment = [];
+  List<LatLng> _otherSegments = [];
+  bool _isLoading = true;
+  bool _isAccepting = false;
 
   @override
   void initState() {
     super.initState();
-    _loadItinerary();
+    _loadOptimizedRoute();
   }
 
-  void _loadItinerary() async {
-    print("--- DÉBUT CHARGEMENT ITINÉRAIRE ---");
-    print("Appel API pour les commandes: ${widget.batch.orderIds}");
+  Future<void> _loadOptimizedRoute() async {
+    if (!mounted) return;
+    setState(() => _isLoading = true);
 
     try {
-      final data = await _apiService.getOptimalRoute(
-        // Position fictive du livreur (à remplacer par le GPS réel plus tard)
-        Location(
-          latitude: 14.6928,
-          longitude: -17.4467,
-          quartier: "Départ",
-          adresse: "Ma Position",
-        ),
+      // Position fictive du livreur (Dakar)
+      Location courierPos = Location(
+        latitude: 14.6928,
+        longitude: -17.4467,
+        quartier: "Départ",
+        adresse: "Ma Position",
+      );
+
+      final response = await _apiService.getOptimalRoute(
+        courierPos,
         widget.batch.deliveries,
       );
 
-      // LOG 1: Voir le JSON brut reçu
-      print("JSON REÇU DE L'API: $data");
+      final segments = _apiService.extractRouteSegments(response);
 
-      // LOG 2: Vérifier la structure attendue
-      if (data['steps'] == null) {
-        print("ATTENTION: La clé 'steps' est absente du JSON");
-      } else {
-        print("Nombre d'étapes (steps) trouvées: ${data['steps'].length}");
+      if (mounted) {
+        setState(() {
+          _firstSegment = segments['first'] ?? [];
+          _otherSegments = segments['others'] ?? [];
+          _isLoading = false;
+        });
+        _fitRoute();
       }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Erreur d'itinéraire: $e")));
+      }
+    }
+  }
 
-      setState(() {
-        //_points = _apiService.extractPolylinePoints(data);
+  void _fitRoute() {
+    final allPoints = [..._firstSegment, ..._otherSegments];
+    if (allPoints.isNotEmpty) {
+      final bounds = LatLngBounds.fromPoints(allPoints);
+      _mapController.fitCamera(
+        CameraFit.bounds(bounds: bounds, padding: const EdgeInsets.all(70.0)),
+      );
+    }
+  }
 
-        // LOG 3: Vérifier les points extraits
-        print("Nombre de points GPS extraits pour la carte: ${_points.length}");
+  Future<void> _acceptBatch() async {
+    setState(() => _isAccepting = true);
 
-        double distMeters = 0;
-        if (data['steps'] != null && data['steps'].isNotEmpty) {
-          distMeters = data['steps'][0]['distance_m']?.toDouble() ?? 0;
-        }
+    try {
+      // Simulation de l'appel API pour accepter le batch
+      // await _apiService.acceptBatch(widget.batch.id);
+      await Future.delayed(const Duration(seconds: 1));
 
-        _distance = (distMeters / 1000).toStringAsFixed(1);
-        _loading = false;
-      });
-
-      print("--- CHARGEMENT RÉUSSI ---");
-    } catch (e, stacktrace) {
-      // LOG 4: L'erreur détaillée
-      print("ERREUR API DÉTECTÉE: $e");
-      print("DÉTAILS TECHNIQUES: $stacktrace");
-
-      setState(() {
-        _points = [LatLng(14.699, -17.450), LatLng(14.715, -17.467)];
-        _distance = "3.3 (DÉMO)";
-        _loading = false;
-      });
+      if (mounted) {
+        // Redirection vers l'écran de livraison active (on remplace la page actuelle)
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ActiveDeliveryScreen(batch: widget.batch),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isAccepting = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Erreur : Impossible d'accepter le batch")),
+        );
+      }
     }
   }
 
@@ -85,89 +108,168 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text("Lot : ${widget.batch.quartier}"),
+        title: Text("Itinéraire : ${widget.batch.id.substring(0, 8)}"),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
+        elevation: 0,
       ),
       body: Stack(
         children: [
-          // Carte OpenStreetMap
+          // CARTE
           FlutterMap(
-            options: MapOptions(
-              initialCenter: LatLng(14.716, -17.467),
-              initialZoom: 13,
+            mapController: _mapController,
+            options: const MapOptions(
+              initialCenter: LatLng(14.7000, -17.4500),
+              initialZoom: 13.0,
             ),
             children: [
               TileLayer(
                 urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                userAgentPackageName: 'com.yobulma.app',
               ),
-              if (_points.isNotEmpty)
-                PolylineLayer(
-                  polylines: [
+              PolylineLayer(
+                polylines: [
+                  if (_firstSegment.isNotEmpty)
                     Polyline(
-                      points: _points,
-                      color: const Color(0xFFFF9800),
-                      strokeWidth: 5,
+                      points: _firstSegment,
+                      color: Colors.black,
+                      strokeWidth: 4.5,
+                      pattern: StrokePattern.dashed(segments: [8, 5]),
                     ),
-                  ],
-                ),
+                  if (_otherSegments.isNotEmpty)
+                    Polyline(
+                      points: _otherSegments,
+                      color: Colors.blue.shade700,
+                      strokeWidth: 4.5,
+                    ),
+                ],
+              ),
+              MarkerLayer(
+                markers: [
+                  // Position du Livreur
+                  Marker(
+                    point: const LatLng(14.6928, -17.4467),
+                    width: 40,
+                    height: 40,
+                    child: const Icon(
+                      Icons.directions_bike,
+                      color: Colors.blue,
+                      size: 30,
+                    ),
+                  ),
+                  // Points de livraisons
+                  ...widget.batch.deliveries.map((delivery) {
+                    return Marker(
+                      point: LatLng(
+                        delivery.deliveryLocation.latitude!,
+                        delivery.deliveryLocation.longitude!,
+                      ),
+                      width: 50,
+                      height: 50,
+                      child: const Icon(
+                        Icons.location_on,
+                        color: Colors.red,
+                        size: 30,
+                      ),
+                    );
+                  }),
+                ],
+              ),
             ],
           ),
-          // Overlay Infos
-          Positioned(
-            top: 10,
-            left: 10,
-            right: 10,
-            child: Card(
-              child: ListTile(
-                leading: const Icon(Icons.straighten, color: Color(0xFFFF9800)),
-                title: Text("Distance estimée : $_distance km"),
-                subtitle: Text("${widget.batch.orderCount} colis à livrer"),
-              ),
+
+          // CHARGEMENT
+          if (_isLoading)
+            Container(
+              color: Colors.white.withOpacity(0.7),
+              child: const Center(child: CircularProgressIndicator()),
             ),
-          ),
-          // Bouton d'acceptation
-          Positioned(
-            bottom: 30,
-            left: 20,
-            right: 20,
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.black,
-                padding: const EdgeInsets.all(15),
-              ),
-              onPressed: () {
-                // TODO: Naviguer vers l'écran de livraison active (Étape 3)
-                _showSuccess();
-              },
-              child: const Text(
-                "ACCEPTER LA TOURNÉE",
-                style: TextStyle(color: Colors.white),
-              ),
-            ),
-          ),
-          if (_loading)
-            const Center(
-              child: CircularProgressIndicator(color: Color(0xFFFF9800)),
-            ),
+
+          // BARRE D'ACTION BAS DE PAGE
+          Positioned(bottom: 0, left: 0, right: 0, child: _buildBottomPanel()),
         ],
       ),
     );
   }
 
-  void _showSuccess() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text("Lot accepté ! Tournée démarrée."),
-        backgroundColor: Colors.green,
+  Widget _buildBottomPanel() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(25)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            spreadRadius: 2,
+          ),
+        ],
       ),
-    );
-
-    // Remplacer l'écran actuel par l'écran de livraison active
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (_) => ActiveDeliveryScreen(batch: widget.batch),
+      child: SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "${widget.batch.deliveries.length} livraisons",
+                      style: const TextStyle(fontSize: 14, color: Colors.grey),
+                    ),
+                    const Text(
+                      "Gain estimé",
+                      style: TextStyle(fontSize: 14, color: Colors.grey),
+                    ),
+                  ],
+                ),
+                Text(
+                  "${widget.batch.deliveryFee.toInt()} FCFA",
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.green,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              height: 55,
+              child: ElevatedButton(
+                onPressed: (_isLoading || _isAccepting) ? null : _acceptBatch,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.orange,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                  elevation: 0,
+                ),
+                child: _isAccepting
+                    ? const SizedBox(
+                        width: 25,
+                        height: 25,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : const Text(
+                        "ACCEPTER ET COMMENCER",
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

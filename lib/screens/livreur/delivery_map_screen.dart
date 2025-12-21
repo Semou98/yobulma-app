@@ -4,11 +4,6 @@ import 'package:latlong2/latlong.dart';
 import 'package:yoboulma_app/models/location_model.dart';
 import 'package:yoboulma_app/services/api_service.dart';
 import '../../models/batch_model.dart';
-
-import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
-import 'dart:convert';
 import 'active_delivery_screen.dart'; // L'écran vers lequel on redirige
 
 class DeliveryMapScreen extends StatefulWidget {

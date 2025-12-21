@@ -1,10 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
-
-import 'dart:convert';
-import 'package:http/http.dart' as http;
-import 'package:latlong2/latlong.dart'; // Pour les objets LatLng
 import '../models/order_model.dart';
 import '../models/location_model.dart';
 

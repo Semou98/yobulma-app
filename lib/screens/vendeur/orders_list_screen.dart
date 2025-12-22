@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:yoboulma_app/screens/vendeur/order_detail_screen.dart';
+import 'package:yoboulma_app/services/auth_service.dart'; // Import pour logout
+import 'package:yoboulma_app/screens/auth/login_screen.dart'; // Import pour redirection
 import '../../data/mock_data.dart';
 import '../../models/order_model.dart';
+import '../../models/user_model.dart';
 import '../../core/enums.dart';
 import 'create_order_screen.dart';
 
@@ -14,8 +17,8 @@ class OrderListScreen extends StatefulWidget {
 
 class _OrderListScreenState extends State<OrderListScreen> {
   // Charte graphique
-  static const Color _primaryColor = Color(0xFFEE8E42); // Orange
-  static const Color _secondaryColor = Color(0xFF23529C); // Bleu
+  static const Color _primaryColor = Color(0xFFEE8E42); 
+  static const Color _secondaryColor = Color(0xFF23529C); 
   static const Color _backgroundColor = Colors.white;
   static const Color _textPrimary = Color(0xFF111827);
   static const Color _textSecondary = Color(0xFF6B7280);
@@ -24,11 +27,39 @@ class _OrderListScreenState extends State<OrderListScreen> {
   static const Color _warningColor = Color(0xFFF59E0B);
   static const Color _cardColor = Color(0xFFF9FAFB);
 
+  User? _currentUser;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUser();
+  }
+
+  // Charger l'utilisateur pour filtrer les commandes par son ID réel
+  void _loadUser() async {
+    final user = await AuthService.getUser();
+    setState(() {
+      _currentUser = user;
+    });
+  }
+
+  // Logique de déconnexion
+  void _handleLogout() async {
+    await AuthService.logout();
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (context) => const LoginScreen()),
+      (route) => false,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Filtrage des commandes du vendeur actuel (vendeur-001)
+    // Filtrage dynamique : Utilise l'ID de l'utilisateur connecté ou 'vendeur-001' par défaut
+    final String currentVendeurId = _currentUser?.id ?? 'vendeur-001';
+    
     final myOrders = MockData.orders
-        .where((o) => o.vendeurId == 'vendeur-001')
+        .where((o) => o.vendeurId == currentVendeurId)
         .toList();
 
     return DefaultTabController(
@@ -42,7 +73,7 @@ class _OrderListScreenState extends State<OrderListScreen> {
           title: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
+              const Text(
                 "Mes expéditions",
                 style: TextStyle(
                   fontSize: 24,
@@ -53,46 +84,36 @@ class _OrderListScreenState extends State<OrderListScreen> {
               ),
               Text(
                 "${myOrders.length} commande${myOrders.length > 1 ? 's' : ''} au total",
-                style: TextStyle(
-                  fontSize: 13,
-                  color: _textSecondary,
-                ),
+                style: const TextStyle(fontSize: 13, color: _textSecondary),
               ),
             ],
           ),
+          actions: [
+            // Bouton de déconnexion ajouté ici
+            IconButton(
+              onPressed: () => _showLogoutDialog(),
+              icon: const Icon(Icons.logout_rounded, color: _textSecondary),
+              tooltip: "Déconnexion",
+            ),
+          ],
           bottom: PreferredSize(
             preferredSize: const Size.fromHeight(60),
             child: Container(
               color: _backgroundColor,
               child: Column(
                 children: [
-                  TabBar(
+                  const TabBar(
                     labelColor: _primaryColor,
                     unselectedLabelColor: _textSecondary,
                     indicatorColor: _primaryColor,
                     indicatorWeight: 3,
                     indicatorSize: TabBarIndicatorSize.tab,
-                    labelStyle: const TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 13,
-                    ),
-                    unselectedLabelStyle: const TextStyle(
-                      fontWeight: FontWeight.w500,
-                      fontSize: 13,
-                    ),
+                    labelStyle: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                    unselectedLabelStyle: TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
                     tabs: [
-                      Tab(
-                        icon: Icon(Icons.hourglass_top_rounded, size: 20),
-                        text: "En attente",
-                      ),
-                      Tab(
-                        icon: Icon(Icons.local_shipping_rounded, size: 20),
-                        text: "En cours",
-                      ),
-                      Tab(
-                        icon: Icon(Icons.check_circle_rounded, size: 20),
-                        text: "Livrées",
-                      ),
+                      Tab(icon: Icon(Icons.hourglass_top_rounded, size: 20), text: "En attente"),
+                      Tab(icon: Icon(Icons.local_shipping_rounded, size: 20), text: "En cours"),
+                      Tab(icon: Icon(Icons.check_circle_rounded, size: 20), text: "Livrées"),
                     ],
                   ),
                   const Divider(height: 1, thickness: 1),
@@ -113,35 +134,40 @@ class _OrderListScreenState extends State<OrderListScreen> {
             Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const CreateOrderScreen()),
-            ).then((_) => setState(() {})); // Rafraîchir la liste au retour
+            ).then((_) => setState(() {})); 
           },
           icon: Container(
             width: 24,
             height: 24,
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              Icons.add_rounded,
-              color: _secondaryColor,
-              size: 18,
-            ),
+            decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+            child: const Icon(Icons.add_rounded, color: _secondaryColor, size: 18),
           ),
-          label: const Text(
-            "Nouvelle expédition",
-            style: TextStyle(
-              fontWeight: FontWeight.w700,
-              fontSize: 14,
-            ),
-          ),
+          label: const Text("Nouvelle expédition", style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
           backgroundColor: _secondaryColor,
           foregroundColor: Colors.white,
           elevation: 8,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         ),
+      ),
+    );
+  }
+
+  void _showLogoutDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Déconnexion"),
+        content: const Text("Voulez-vous vraiment quitter l'application ?"),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Annuler")),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _handleLogout();
+            }, 
+            child: const Text("Déconnexion", style: TextStyle(color: Colors.red))
+          ),
+        ],
       ),
     );
   }
@@ -155,7 +181,6 @@ class _OrderListScreenState extends State<OrderListScreen> {
 
     return RefreshIndicator(
       color: _primaryColor,
-      backgroundColor: _backgroundColor,
       onRefresh: () async {
         setState(() {});
         await Future.delayed(const Duration(milliseconds: 500));
@@ -164,71 +189,28 @@ class _OrderListScreenState extends State<OrderListScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         itemCount: filteredOrders.length,
         separatorBuilder: (context, index) => const SizedBox(height: 12),
-        itemBuilder: (context, index) {
-          final order = filteredOrders[index];
-          return _buildOrderCard(order);
-        },
+        itemBuilder: (context, index) => _buildOrderCard(filteredOrders[index]),
       ),
     );
   }
 
   Widget _buildEmptyState(OrderStatus status) {
-    String message;
     IconData icon;
-    
+    String message;
     switch (status) {
-      case OrderStatus.EN_ATTENTE_DE_LIVREUR:
-        message = "Aucune commande en attente";
-        icon = Icons.hourglass_empty_rounded;
-        break;
-      case OrderStatus.EN_COURS_DE_LIVRAISON:
-        message = "Aucune commande en cours";
-        icon = Icons.local_shipping_outlined;
-        break;
-      case OrderStatus.LIVREE:
-        message = "Aucune commande livrée";
-        icon = Icons.check_circle_outline_rounded;
-        break;
-      default:
-        message = "Aucune commande";
-        icon = Icons.inventory_2_outlined;
+      case OrderStatus.EN_ATTENTE_DE_LIVREUR: icon = Icons.hourglass_empty; message = "Aucune commande en attente"; break;
+      case OrderStatus.EN_COURS_DE_LIVRAISON: icon = Icons.local_shipping_outlined; message = "Aucune livraison en cours"; break;
+      case OrderStatus.LIVREE: icon = Icons.check_circle_outline; message = "Aucune commande livrée"; break;
+      default: icon = Icons.inventory_2_outlined; message = "Liste vide";
     }
 
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              color: _cardColor,
-              shape: BoxShape.circle,
-              border: Border.all(color: _borderColor, width: 1.5),
-            ),
-            child: Icon(
-              icon,
-              size: 40,
-              color: _textSecondary,
-            ),
-          ),
-          const SizedBox(height: 24),
-          Text(
-            message,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: _textSecondary,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            "Les nouvelles commandes apparaîtront ici",
-            style: TextStyle(
-              fontSize: 14,
-              color: _textSecondary.withOpacity(0.7),
-            ),
-          ),
+          Icon(icon, size: 60, color: _textSecondary.withOpacity(0.5)),
+          const SizedBox(height: 16),
+          Text(message, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: _textSecondary)),
         ],
       ),
     );
@@ -236,303 +218,82 @@ class _OrderListScreenState extends State<OrderListScreen> {
 
   Widget _buildOrderCard(Order order) {
     return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => OrderDetailScreen(order: order),
-          ),
-        );
-      },
+      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => OrderDetailScreen(order: order))),
       child: Container(
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: _backgroundColor,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: _borderColor, width: 1.5),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ],
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))],
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // En-tête avec ID et statut
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: _secondaryColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      order.id,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: _secondaryColor,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                  ),
-                  _buildStatusBadge(order.status),
-                ],
-              ),
-              
-              const SizedBox(height: 16),
-              
-              // Informations client
-              Row(
-                children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: _cardColor,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.person_outline_rounded,
-                      color: _secondaryColor,
-                      size: 20,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          order.clientName,
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            color: _textPrimary,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.phone_iphone_rounded,
-                              size: 14,
-                              color: _textSecondary,
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              order.clientPhone,
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: _textSecondary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              
-              const SizedBox(height: 16),
-              
-              // Adresse de livraison
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: _cardColor,
-                  borderRadius: BorderRadius.circular(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(color: _secondaryColor.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+                  child: Text(order.id, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: _secondaryColor)),
                 ),
-                child: Row(
+                _buildStatusBadge(order.status),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                const CircleAvatar(backgroundColor: _cardColor, child: Icon(Icons.person, color: _secondaryColor, size: 20)),
+                const SizedBox(width: 12),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(
-                      Icons.location_on_outlined,
-                      size: 16,
-                      color: _primaryColor,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            "Livraison à",
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: _textSecondary,
-                            ),
-                          ),
-                          Text(
-                            order.deliveryLocation.adresse,
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: _textPrimary,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          const SizedBox(height: 4),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: _primaryColor.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: _primaryColor.withOpacity(0.2),
-                              ),
-                            ),
-                            child: Text(
-                              order.deliveryLocation.quartier,
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: _primaryColor,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                    Text(order.clientName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    Text(order.clientPhone, style: const TextStyle(color: _textSecondary, fontSize: 14)),
                   ],
                 ),
-              ),
-              
-              const SizedBox(height: 16),
-              
-              // Pied de carte avec OTP et date
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: _secondaryColor.withOpacity(0.08),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: _secondaryColor.withOpacity(0.2),
-                        width: 1,
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.vpn_key_rounded,
-                          size: 14,
-                          color: _secondaryColor,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          "OTP: ${order.otp}",
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: _secondaryColor,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Text(
-                    _formatDate(order.createdAt),
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: _textSecondary,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
+              ],
+            ),
+            const Divider(height: 30),
+            Row(
+              children: [
+                const Icon(Icons.location_on, size: 16, color: _primaryColor),
+                const SizedBox(width: 8),
+                Expanded(child: Text(order.deliveryLocation.adresse, style: const TextStyle(fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis)),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(color: _secondaryColor.withOpacity(0.05), borderRadius: BorderRadius.circular(10)),
+                  child: Text("OTP: ${order.otp}", style: const TextStyle(fontWeight: FontWeight.bold, color: _secondaryColor)),
+                ),
+                Text(_formatDate(order.createdAt), style: const TextStyle(color: _textSecondary, fontSize: 12)),
+              ],
+            ),
+          ],
         ),
       ),
     );
   }
 
   Widget _buildStatusBadge(OrderStatus status) {
-    Color color;
-    String text;
-    IconData icon;
-    
-    switch (status) {
-      case OrderStatus.LIVREE:
-        color = _successColor;
-        text = "Livrée";
-        icon = Icons.check_circle_rounded;
-        break;
-      case OrderStatus.EN_COURS_DE_LIVRAISON:
-        color = _warningColor;
-        text = "En cours";
-        icon = Icons.local_shipping_rounded;
-        break;
-      case OrderStatus.EN_ATTENTE_DE_LIVREUR:
-        color = _primaryColor;
-        text = "En attente";
-        icon = Icons.hourglass_top_rounded;
-        break;
-      default:
-        color = _textSecondary;
-        text = "Inconnu";
-        icon = Icons.help_outline_rounded;
-    }
-
+    Color color = status == OrderStatus.LIVREE ? _successColor : (status == OrderStatus.EN_COURS_DE_LIVRAISON ? _warningColor : _primaryColor);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.3), width: 1.5),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: color),
-          const SizedBox(width: 6),
-          Text(
-            text,
-            style: TextStyle(
-              color: color,
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.3,
-            ),
-          ),
-        ],
-      ),
+      decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(12), border: Border.all(color: color.withOpacity(0.3))),
+      child: Text(status.name.split('.').last.replaceAll('_', ' '), style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold)),
     );
   }
 
   String _formatDate(DateTime date) {
-    final now = DateTime.now();
-    final difference = now.difference(date);
-    
-    if (difference.inDays > 7) {
-      return "${date.day}/${date.month}/${date.year}";
-    } else if (difference.inDays > 0) {
-      return "Il y a ${difference.inDays} jour${difference.inDays > 1 ? 's' : ''}";
-    } else if (difference.inHours > 0) {
-      return "Il y a ${difference.inHours} heure${difference.inHours > 1 ? 's' : ''}";
-    } else if (difference.inMinutes > 0) {
-      return "Il y a ${difference.inMinutes} minute${difference.inMinutes > 1 ? 's' : ''}";
-    } else {
-      return "À l'instant";
-    }
+    final diff = DateTime.now().difference(date);
+    if (diff.inDays > 0) return "Il y a ${diff.inDays}j";
+    if (diff.inHours > 0) return "Il y a ${diff.inHours}h";
+    return "À l'instant";
   }
 }

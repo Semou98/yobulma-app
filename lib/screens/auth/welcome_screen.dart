@@ -1,38 +1,44 @@
 import 'package:flutter/material.dart';
-import 'login_screen.dart';
-import 'register_screen.dart';
+import 'package:yoboulma_app/screens/auth/login_screen.dart'; // Vérifie bien le chemin
+import 'package:yoboulma_app/screens/auth/register_screen.dart'; // Vérifie bien le chemin
 
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    // On récupère la taille de l'écran pour éviter les débordements
+    final screenHeight = MediaQuery.of(context).size.height;
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
         child: SingleChildScrollView(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              minHeight: MediaQuery.of(context).size.height,
-            ),
+          child: Container(
+            // On s'assure que le container prend au moins toute la hauteur de l'écran
+            constraints: BoxConstraints(minHeight: screenHeight - MediaQuery.of(context).padding.top),
+            padding: const EdgeInsets.symmetric(horizontal: 25),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // Contenu principal (sans logo en haut)
+                // --- SECTION HAUT (Logo et Texte) ---
                 Padding(
-                  padding: const EdgeInsets.only(top: 60),
+                  padding: const EdgeInsets.only(top: 40),
                   child: Column(
                     children: [
-                      // Logo principal centré
+                      // Utilisation d'un bloc sécurisé pour l'image
                       Image.asset(
                         'lib/images/YOBULMA LOGO_Plan de travail 1.png',
-                        height: 180, // Taille optimisée
+                        height: 160,
                         fit: BoxFit.contain,
+                        errorBuilder: (context, error, stackTrace) {
+                          // Si l'image ne charge pas, on affiche une icône de secours
+                          return const Icon(Icons.bolt_rounded, size: 100, color: Color(0xFF23529C));
+                        },
                       ),
                       
-                      const SizedBox(height: 25),
+                      const SizedBox(height: 20),
                       
-                      // Titre principal
                       const Text(
                         'YOBULMA',
                         style: TextStyle(
@@ -43,41 +49,36 @@ class WelcomeScreen extends StatelessWidget {
                         ),
                       ),
                       
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 10),
                       
-                      // Sous-titre
                       const Text(
                         'La livraison de confiance à Dakar',
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          color: Color(0xFF23529C), // Bleu tertiaire
+                          color: Color(0xFF23529C),
                           fontSize: 16,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
                       
-                      const SizedBox(height: 35),
+                      const SizedBox(height: 25),
                       
-                      // Description
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 25),
-                        child: Text(
-                          'Solution de livraison optimisée pour les commerçants et livreurs de Dakar',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: Colors.grey.shade600,
-                            fontSize: 14,
-                            height: 1.5,
-                          ),
+                      Text(
+                        'Solution de livraison optimisée pour les commerçants et livreurs de Dakar',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.grey.shade600,
+                          fontSize: 14,
+                          height: 1.5,
                         ),
                       ),
                     ],
                   ),
                 ),
 
-                // Section des boutons
+                // --- SECTION BAS (Boutons) ---
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 35, top: 20),
+                  padding: const EdgeInsets.only(bottom: 40, top: 20),
                   child: Column(
                     children: [
                       // Bouton Se Connecter
@@ -87,25 +88,17 @@ class WelcomeScreen extends StatelessWidget {
                         child: ElevatedButton(
                           onPressed: () => Navigator.push(
                             context,
-                            MaterialPageRoute(
-                              builder: (context) => const LoginScreen(),
-                            ),
+                            MaterialPageRoute(builder: (context) => const LoginScreen()),
                           ),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF23529C), // Bleu tertiaire
+                            backgroundColor: const Color(0xFF23529C),
                             foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                            elevation: 2,
-                            shadowColor: const Color(0xFF23529C).withOpacity(0.3),
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                           ),
                           child: const Text(
                             'Se connecter',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                           ),
                         ),
                       ),
@@ -119,44 +112,31 @@ class WelcomeScreen extends StatelessWidget {
                         child: OutlinedButton(
                           onPressed: () => Navigator.push(
                             context,
-                            MaterialPageRoute(
-                              builder: (context) => const RegisterScreen(),
-                            ),
+                            MaterialPageRoute(builder: (context) => const RegisterScreen()),
                           ),
                           style: OutlinedButton.styleFrom(
-                            side: const BorderSide(
-                              color: Color(0xFF23529C), // Bleu tertiaire
-                              width: 2,
-                            ),
+                            side: const BorderSide(color: Color(0xFF23529C), width: 2),
                             foregroundColor: const Color(0xFF23529C),
-                            backgroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
-                            ),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                           ),
                           child: const Text(
                             'S\'inscrire',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                           ),
                         ),
                       ),
                       
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 15),
                       
-                      // Lien "Continuer sans compte"
                       TextButton(
                         onPressed: () {
-                          // Action pour continuer sans compte
+                          // Optionnel : redirection vers un mode invité
                         },
-                        child: Text(
+                        child: const Text(
                           'Continuer sans compte',
                           style: TextStyle(
-                            color: const Color(0xFFEE8E42), // Orange secondaire
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
+                            color: Color(0xFFEE8E42),
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
                       ),

@@ -3,54 +3,65 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user_model.dart';
 
 class AuthService {
-  // Clé unique pour stocker la chaîne JSON dans le téléphone
+  // Clé unique pour stocker la session utilisateur
   static const String _userKey = 'logged_user';
 
-  /// SAUVEGARDER l'utilisateur (Inscription ou Connexion)
-  /// Cette méthode transforme l'objet User en texte JSON pour SharedPreferences
+  /// CONNEXION (Alias de saveUser pour la sémantique)
+  /// Utilisé lors de l'inscription pour connecter l'utilisateur immédiatement
+  static Future<void> login(User user) async {
+    await saveUser(user);
+  }
+
+  /// SAUVEGARDER l'utilisateur (Persistance locale)
+  /// Transforme l'objet User en JSON pour le stocker dans SharedPreferences
   static Future<void> saveUser(User user) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       
-      // Conversion de l'objet User en Map, puis en String JSON
+      // Conversion Objet -> Map -> String JSON
       final String userJson = jsonEncode(user.toJson());
       
-      // Stockage permanent sur le disque local
       await prefs.setString(_userKey, userJson);
-      print("Utilisateur sauvegardé avec succès en JSON");
+      print("Session utilisateur active : ${user.name}");
     } catch (e) {
-      print("Erreur lors de la sauvegarde de l'utilisateur: $e");
+      print("Erreur AuthService (saveUser): $e");
+      rethrow; // Renvoie l'erreur pour la gérer dans l'UI (SnackBar)
     }
   }
 
-  /// RÉCUPÉRER l'utilisateur (Vérification au démarrage)
-  /// Lit la chaîne JSON et la retransforme en objet User exploitable par Flutter
+  /// RÉCUPÉRER l'utilisateur connecté
+  /// Utile pour filtrer les commandes du vendeur par son ID réel
   static Future<User?> getUser() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final String? userJson = prefs.getString(_userKey);
 
       if (userJson != null && userJson.isNotEmpty) {
-        // Décodage du String vers Map, puis Map vers objet User
+        // Conversion String JSON -> Map -> Objet User
         return User.fromJson(jsonDecode(userJson));
       }
     } catch (e) {
-      print("Erreur lors de la récupération de l'utilisateur: $e");
+      print("Erreur AuthService (getUser): $e");
     }
     return null;
   }
 
-  /// VÉRIFIER si un utilisateur est déjà connecté
+  /// VÉRIFIER l'état de la connexion
+  /// Utilisé par le Splash Screen pour décider où envoyer l'utilisateur
   static Future<bool> isLoggedIn() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.containsKey(_userKey);
   }
 
   /// DÉCONNEXION
-  /// Supprime le fichier JSON virtuel de la mémoire
+  /// Nettoie la session et oblige l'utilisateur à se reconnecter
   static Future<void> logout() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_userKey);
-    print("Session utilisateur supprimée");
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_userKey);
+      print("Utilisateur déconnecté");
+    } catch (e) {
+      print("Erreur AuthService (logout): $e");
+    }
   }
 }

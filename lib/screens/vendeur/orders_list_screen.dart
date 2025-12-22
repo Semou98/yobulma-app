@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:yoboulma_app/screens/vendeur/order_detail_screen.dart';
-import 'package:yoboulma_app/services/auth_service.dart'; // Import pour logout
-import 'package:yoboulma_app/screens/auth/login_screen.dart'; // Import pour redirection
+import 'package:yoboulma_app/services/auth_service.dart';
+import 'package:yoboulma_app/screens/auth/login_screen.dart';
 import '../../data/mock_data.dart';
 import '../../models/order_model.dart';
 import '../../models/user_model.dart';
@@ -16,9 +16,9 @@ class OrderListScreen extends StatefulWidget {
 }
 
 class _OrderListScreenState extends State<OrderListScreen> {
-  // Charte graphique
-  static const Color _primaryColor = Color(0xFFEE8E42); 
-  static const Color _secondaryColor = Color(0xFF23529C); 
+  // Charte graphique unifiée
+  static const Color _primaryColor = Color(0xFFEE8E42); // Orange Yobulma
+  static const Color _secondaryColor = Color(0xFF23529C); // Bleu Yobulma
   static const Color _backgroundColor = Colors.white;
   static const Color _textPrimary = Color(0xFF111827);
   static const Color _textSecondary = Color(0xFF6B7280);
@@ -35,15 +35,16 @@ class _OrderListScreenState extends State<OrderListScreen> {
     _loadUser();
   }
 
-  // Charger l'utilisateur pour filtrer les commandes par son ID réel
+  // Charger l'utilisateur pour filtrer les commandes
   void _loadUser() async {
     final user = await AuthService.getUser();
-    setState(() {
-      _currentUser = user;
-    });
+    if (mounted) {
+      setState(() {
+        _currentUser = user;
+      });
+    }
   }
 
-  // Logique de déconnexion
   void _handleLogout() async {
     await AuthService.logout();
     if (!mounted) return;
@@ -55,7 +56,7 @@ class _OrderListScreenState extends State<OrderListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Filtrage dynamique : Utilise l'ID de l'utilisateur connecté ou 'vendeur-001' par défaut
+    // Filtrage : ID de l'utilisateur connecté ou fallback sur mock
     final String currentVendeurId = _currentUser?.id ?? 'vendeur-001';
     
     final myOrders = MockData.orders
@@ -76,7 +77,7 @@ class _OrderListScreenState extends State<OrderListScreen> {
               const Text(
                 "Mes expéditions",
                 style: TextStyle(
-                  fontSize: 24,
+                  fontSize: 22,
                   fontWeight: FontWeight.w900,
                   color: _textPrimary,
                   letterSpacing: -0.5,
@@ -89,7 +90,6 @@ class _OrderListScreenState extends State<OrderListScreen> {
             ],
           ),
           actions: [
-            // Bouton de déconnexion ajouté ici
             IconButton(
               onPressed: () => _showLogoutDialog(),
               icon: const Icon(Icons.logout_rounded, color: _textSecondary),
@@ -99,24 +99,19 @@ class _OrderListScreenState extends State<OrderListScreen> {
           bottom: PreferredSize(
             preferredSize: const Size.fromHeight(60),
             child: Container(
-              color: _backgroundColor,
-              child: Column(
-                children: [
-                  const TabBar(
-                    labelColor: _primaryColor,
-                    unselectedLabelColor: _textSecondary,
-                    indicatorColor: _primaryColor,
-                    indicatorWeight: 3,
-                    indicatorSize: TabBarIndicatorSize.tab,
-                    labelStyle: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
-                    unselectedLabelStyle: TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
-                    tabs: [
-                      Tab(icon: Icon(Icons.hourglass_top_rounded, size: 20), text: "En attente"),
-                      Tab(icon: Icon(Icons.local_shipping_rounded, size: 20), text: "En cours"),
-                      Tab(icon: Icon(Icons.check_circle_rounded, size: 20), text: "Livrées"),
-                    ],
-                  ),
-                  const Divider(height: 1, thickness: 1),
+              decoration: const BoxDecoration(
+                border: Border(bottom: BorderSide(color: _borderColor, width: 1)),
+              ),
+              child: const TabBar(
+                labelColor: _secondaryColor,
+                unselectedLabelColor: _textSecondary,
+                indicatorColor: _primaryColor,
+                indicatorWeight: 3,
+                labelStyle: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                tabs: [
+                  Tab(text: "En attente"),
+                  Tab(text: "En cours"),
+                  Tab(text: "Livrées"),
                 ],
               ),
             ),
@@ -134,40 +129,15 @@ class _OrderListScreenState extends State<OrderListScreen> {
             Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const CreateOrderScreen()),
-            ).then((_) => setState(() {})); 
+            ).then((value) {
+              if (value == true) setState(() {}); 
+            });
           },
-          icon: Container(
-            width: 24,
-            height: 24,
-            decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-            child: const Icon(Icons.add_rounded, color: _secondaryColor, size: 18),
-          ),
-          label: const Text("Nouvelle expédition", style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+          icon: const Icon(Icons.add_box_rounded, color: Colors.white),
+          label: const Text("Envoyer un colis", style: TextStyle(fontWeight: FontWeight.bold)),
           backgroundColor: _secondaryColor,
-          foregroundColor: Colors.white,
-          elevation: 8,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          elevation: 4,
         ),
-      ),
-    );
-  }
-
-  void _showLogoutDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Déconnexion"),
-        content: const Text("Voulez-vous vraiment quitter l'application ?"),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Annuler")),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _handleLogout();
-            }, 
-            child: const Text("Déconnexion", style: TextStyle(color: Colors.red))
-          ),
-        ],
       ),
     );
   }
@@ -186,31 +156,29 @@ class _OrderListScreenState extends State<OrderListScreen> {
         await Future.delayed(const Duration(milliseconds: 500));
       },
       child: ListView.separated(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        padding: const EdgeInsets.all(20),
         itemCount: filteredOrders.length,
-        separatorBuilder: (context, index) => const SizedBox(height: 12),
+        separatorBuilder: (context, index) => const SizedBox(height: 16),
         itemBuilder: (context, index) => _buildOrderCard(filteredOrders[index]),
       ),
     );
   }
 
   Widget _buildEmptyState(OrderStatus status) {
-    IconData icon;
-    String message;
-    switch (status) {
-      case OrderStatus.EN_ATTENTE_DE_LIVREUR: icon = Icons.hourglass_empty; message = "Aucune commande en attente"; break;
-      case OrderStatus.EN_COURS_DE_LIVRAISON: icon = Icons.local_shipping_outlined; message = "Aucune livraison en cours"; break;
-      case OrderStatus.LIVREE: icon = Icons.check_circle_outline; message = "Aucune commande livrée"; break;
-      default: icon = Icons.inventory_2_outlined; message = "Liste vide";
-    }
+    String message = "Rien à afficher ici";
+    IconData icon = Icons.inventory_2_outlined;
+
+    if (status == OrderStatus.EN_ATTENTE_DE_LIVREUR) message = "Aucun colis en attente";
+    if (status == OrderStatus.EN_COURS_DE_LIVRAISON) message = "Aucun colis sur la route";
+    if (status == OrderStatus.LIVREE) message = "Vous n'avez pas encore de livraisons terminées";
 
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, size: 60, color: _textSecondary.withOpacity(0.5)),
+          Icon(icon, size: 64, color: _borderColor),
           const SizedBox(height: 16),
-          Text(message, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: _textSecondary)),
+          Text(message, style: const TextStyle(color: _textSecondary, fontSize: 15)),
         ],
       ),
     );
@@ -218,14 +186,19 @@ class _OrderListScreenState extends State<OrderListScreen> {
 
   Widget _buildOrderCard(Order order) {
     return GestureDetector(
-      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => OrderDetailScreen(order: order))),
+      onTap: () => Navigator.push(
+        context, 
+        MaterialPageRoute(builder: (_) => OrderDetailScreen(order: order))
+      ),
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: _backgroundColor,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: _borderColor, width: 1.5),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))],
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: _borderColor),
+          boxShadow: [
+            BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -233,10 +206,9 @@ class _OrderListScreenState extends State<OrderListScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(color: _secondaryColor.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
-                  child: Text(order.id, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: _secondaryColor)),
+                Text(
+                  order.id,
+                  style: const TextStyle(fontWeight: FontWeight.bold, color: _secondaryColor),
                 ),
                 _buildStatusBadge(order.status),
               ],
@@ -244,35 +216,50 @@ class _OrderListScreenState extends State<OrderListScreen> {
             const SizedBox(height: 16),
             Row(
               children: [
-                const CircleAvatar(backgroundColor: _cardColor, child: Icon(Icons.person, color: _secondaryColor, size: 20)),
-                const SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(order.clientName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                    Text(order.clientPhone, style: const TextStyle(color: _textSecondary, fontSize: 14)),
-                  ],
+                const Icon(Icons.person_pin_circle_rounded, color: _primaryColor, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    order.clientName,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
                 ),
               ],
             ),
-            const Divider(height: 30),
+            const SizedBox(height: 8),
             Row(
               children: [
-                const Icon(Icons.location_on, size: 16, color: _primaryColor),
+                const Icon(Icons.location_on_outlined, color: _textSecondary, size: 18),
                 const SizedBox(width: 8),
-                Expanded(child: Text(order.deliveryLocation.adresse, style: const TextStyle(fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis)),
+                Expanded(
+                  child: Text(
+                    order.deliveryLocation.adresse,
+                    style: const TextStyle(color: _textSecondary, fontSize: 14),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
               ],
             ),
-            const SizedBox(height: 12),
+            const Divider(height: 24),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(color: _secondaryColor.withOpacity(0.05), borderRadius: BorderRadius.circular(10)),
-                  child: Text("OTP: ${order.otp}", style: const TextStyle(fontWeight: FontWeight.bold, color: _secondaryColor)),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: _cardColor,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    "Code OTP: ${order.otp}",
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                  ),
                 ),
-                Text(_formatDate(order.createdAt), style: const TextStyle(color: _textSecondary, fontSize: 12)),
+                Text(
+                  _formatDate(order.createdAt),
+                  style: const TextStyle(color: _textSecondary, fontSize: 11),
+                ),
               ],
             ),
           ],
@@ -282,18 +269,56 @@ class _OrderListScreenState extends State<OrderListScreen> {
   }
 
   Widget _buildStatusBadge(OrderStatus status) {
-    Color color = status == OrderStatus.LIVREE ? _successColor : (status == OrderStatus.EN_COURS_DE_LIVRAISON ? _warningColor : _primaryColor);
+    Color color = _primaryColor;
+    String label = "En attente";
+
+    if (status == OrderStatus.EN_COURS_DE_LIVRAISON) {
+      color = _warningColor;
+      label = "En cours";
+    } else if (status == OrderStatus.LIVREE) {
+      color = _successColor;
+      label = "Livré";
+    }
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(12), border: Border.all(color: color.withOpacity(0.3))),
-      child: Text(status.name.split('.').last.replaceAll('_', ' '), style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold)),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold),
+      ),
     );
   }
 
   String _formatDate(DateTime date) {
-    final diff = DateTime.now().difference(date);
-    if (diff.inDays > 0) return "Il y a ${diff.inDays}j";
-    if (diff.inHours > 0) return "Il y a ${diff.inHours}h";
-    return "À l'instant";
+    final now = DateTime.now();
+    final difference = now.difference(date);
+    if (difference.inMinutes < 60) return "Il y a ${difference.inMinutes} min";
+    if (difference.inHours < 24) return "Il y a ${difference.inHours} h";
+    return "${date.day}/${date.month}/${date.year}";
+  }
+
+  void _showLogoutDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text("Déconnexion"),
+        content: const Text("Souhaitez-vous vraiment vous déconnecter ?"),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Annuler")),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _handleLogout();
+            }, 
+            child: const Text("Déconnexion", style: TextStyle(color: Colors.red))
+          ),
+        ],
+      ),
+    );
   }
 }

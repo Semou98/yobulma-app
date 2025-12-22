@@ -29,7 +29,7 @@ class Batch {
     this.optimizedSteps,
     this.maxOrders = 5,
     required this.createdAt,
-    required this.updatedAt,
+    required this.updatedAt, required List<Order> deliveries,
   });
 
   bool get isFull => orderIds.length >= maxOrders;
@@ -62,7 +62,7 @@ class Batch {
       optimizedSteps: optimizedSteps ?? this.optimizedSteps,
       maxOrders: maxOrders,
       createdAt: createdAt,
-      updatedAt: DateTime.now(),
+      updatedAt: DateTime.now(), deliveries: [],
     );
   }
 
@@ -77,7 +77,7 @@ class Batch {
       livreurId: json['livreurId'],
       maxOrders: json['maxOrders'] ?? 5,
       createdAt: DateTime.parse(json['createdAt']),
-      updatedAt: DateTime.parse(json['updatedAt']),
+      updatedAt: DateTime.parse(json['updatedAt']), deliveries: [],
     );
   }
 

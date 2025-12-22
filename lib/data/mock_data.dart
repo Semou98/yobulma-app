@@ -140,7 +140,7 @@ class MockData {
       orderIds: ['ORD-001', 'ORD-002', 'ORD-004'],
       status: BatchStatus.DISPONIBLE,
       createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
+      updatedAt: DateTime.now(), deliveries: [],
     ),
     Batch(
       id: 'Groupage-002',
@@ -150,7 +150,7 @@ class MockData {
       orderIds: ['ORD-003', 'ORD-005'], // Ajout de ORD-005
       status: BatchStatus.DISPONIBLE,
       createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
+      updatedAt: DateTime.now(), deliveries: [],
     ),
   ];
 

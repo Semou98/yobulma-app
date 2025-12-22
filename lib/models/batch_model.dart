@@ -1,4 +1,4 @@
-import 'package:yoboulma_app/core/enums.dart';
+import 'package:yoboulma_app/core/enums.dart'; // Assurez-vous que BatchStatus est défini ici
 import 'package:yoboulma_app/data/mock_data.dart';
 import 'package:yoboulma_app/models/order_model.dart';
 import 'package:yoboulma_app/models/route_step.dart';
@@ -7,7 +7,7 @@ class Batch {
   final String id;
   final String quartier;
   final List<String> orderIds;
-  BatchStatus status;
+  BatchStatus status; // Utilise l'enum BatchStatus (DISPONIBLE, EN_COURS, TERMINE, etc.)
   final String? livreurId;
   final List<RouteStep>? optimizedSteps;
   final double? totalDistanceMeter;
@@ -29,14 +29,23 @@ class Batch {
     this.optimizedSteps,
     this.maxOrders = 5,
     required this.createdAt,
-    required this.updatedAt, required List<Order> deliveries,
+    required this.updatedAt,
   });
 
+  // --- GETTERS ---
+  
   bool get isFull => orderIds.length >= maxOrders;
+  
+  // Le lot est disponible s'il n'est pas déjà pris et pas plein
   bool get isAvailable => status == BatchStatus.DISPONIBLE && !isFull;
+  
   int get orderCount => orderIds.length;
+
+  // Récupère les objets Order complets à partir des IDs stockés
   List<Order> get deliveries =>
       MockData.orders.where((order) => orderIds.contains(order.id)).toList();
+
+  // --- MÉTHODES ---
 
   Batch copyWithSteps(List<RouteStep> steps) {
     double totalDist = steps.fold(0, (sum, step) => sum + step.distanceMeters);
@@ -44,40 +53,47 @@ class Batch {
   }
 
   Batch copyWith({
+    String? id,
+    String? quartier,
     List<String>? orderIds,
     BatchStatus? status,
     String? livreurId,
     List<RouteStep>? optimizedSteps,
     double? totalDistanceMeter,
+    String? vendorName,
+    double? deliveryFee,
   }) {
     return Batch(
-      id: id,
-      quartier: quartier,
+      id: id ?? this.id,
+      quartier: quartier ?? this.quartier,
       orderIds: orderIds ?? this.orderIds,
       status: status ?? this.status,
-      vendorName: vendorName,
-      deliveryFee: deliveryFee,
+      vendorName: vendorName ?? this.vendorName,
+      deliveryFee: deliveryFee ?? this.deliveryFee,
       livreurId: livreurId ?? this.livreurId,
       totalDistanceMeter: totalDistanceMeter ?? this.totalDistanceMeter,
       optimizedSteps: optimizedSteps ?? this.optimizedSteps,
-      maxOrders: maxOrders,
-      createdAt: createdAt,
-      updatedAt: DateTime.now(), deliveries: [],
+      maxOrders: this.maxOrders,
+      createdAt: this.createdAt,
+      updatedAt: DateTime.now(), // On met à jour la date de modification
     );
   }
+
+  // --- JSON SERIALIZATION ---
 
   factory Batch.fromJson(Map<String, dynamic> json) {
     return Batch(
       id: json['id'],
       quartier: json['quartier'],
       orderIds: List<String>.from(json['orderIds']),
+      // Conversion string vers enum
       status: BatchStatus.values.byName(json['status']),
       vendorName: json['vendorName'],
-      deliveryFee: json['deliveryFee'],
+      deliveryFee: (json['deliveryFee'] as num).toDouble(),
       livreurId: json['livreurId'],
       maxOrders: json['maxOrders'] ?? 5,
       createdAt: DateTime.parse(json['createdAt']),
-      updatedAt: DateTime.parse(json['updatedAt']), deliveries: [],
+      updatedAt: DateTime.parse(json['updatedAt']),
     );
   }
 
@@ -86,7 +102,9 @@ class Batch {
       'id': id,
       'quartier': quartier,
       'orderIds': orderIds,
-      'status': status.name,
+      'status': status.name, // On stocke le nom de l'enum en string
+      'vendorName': vendorName,
+      'deliveryFee': deliveryFee,
       'livreurId': livreurId,
       'maxOrders': maxOrders,
       'createdAt': createdAt.toIso8601String(),

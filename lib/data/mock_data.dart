@@ -36,7 +36,6 @@ class MockData {
   ];
 
   static List<Order> orders = [
-    // --- COMMANDES POUR BATCH-001 (Zone Sacré-Cœur) ---
     Order(
       id: 'ORD-001',
       vendeurId: 'vendeur-001',
@@ -63,7 +62,7 @@ class MockData {
       deliveryLocation: Location(
         quartier: 'Mermoz',
         adresse: 'Immeuble CBAO',
-        latitude: 14.75100, // Proche de ORD-001
+        latitude: 14.75100,
         longitude: -17.47100,
       ),
       colisDescription: 'Chaussures sport',
@@ -81,7 +80,7 @@ class MockData {
       deliveryLocation: Location(
         quartier: 'Vdn',
         adresse: 'Après le siège de Orange',
-        latitude: 14.75400, // Proche de ORD-001
+        latitude: 14.75400,
         longitude: -17.46700,
       ),
       colisDescription: 'Accessoires électroniques',
@@ -91,8 +90,6 @@ class MockData {
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
     ),
-
-    // --- COMMANDES POUR BATCH-002 (Zone Bourguiba) ---
     Order(
       id: 'ORD-003',
       vendeurId: 'vendeur-001',
@@ -119,7 +116,7 @@ class MockData {
       deliveryLocation: Location(
         quartier: 'Sicap Baobab',
         adresse: 'Près de la station Shell',
-        latitude: 14.72700, // Proche de ORD-003
+        latitude: 14.72700,
         longitude: -17.44300,
       ),
       colisDescription: 'Parfum Luxe',
@@ -140,17 +137,19 @@ class MockData {
       orderIds: ['ORD-001', 'ORD-002', 'ORD-004'],
       status: BatchStatus.DISPONIBLE,
       createdAt: DateTime.now(),
-      updatedAt: DateTime.now(), deliveries: [],
+      updatedAt: DateTime.now(),
+      // deliveries: [] supprimé ici
     ),
     Batch(
       id: 'Groupage-002',
       quartier: 'Grand Dakar / Baobab',
       vendorName: 'Electro Shop',
       deliveryFee: 1800.0,
-      orderIds: ['ORD-003', 'ORD-005'], // Ajout de ORD-005
+      orderIds: ['ORD-003', 'ORD-005'],
       status: BatchStatus.DISPONIBLE,
       createdAt: DateTime.now(),
-      updatedAt: DateTime.now(), deliveries: [],
+      updatedAt: DateTime.now(),
+      // deliveries: [] supprimé ici
     ),
   ];
 

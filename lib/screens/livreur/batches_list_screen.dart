@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:latlong2/latlong.dart'; // Pour le calcul de distance
 import 'package:yoboulma_app/models/batch_model.dart';
+import 'package:yoboulma_app/core/enums.dart';
 import '../../data/mock_data.dart';
 import 'batch_detail_screen.dart';
 
@@ -12,470 +14,304 @@ class LivreurBatchesListScreen extends StatefulWidget {
 }
 
 class _LivreurBatchesListScreenState extends State<LivreurBatchesListScreen> {
-  // Charte graphique centralisée
-  static const Color _primaryColor = Color(0xFFEE8E42); // Orange
-  static const Color _secondaryColor = Color(0xFF23529C); // Bleu
-  static const Color _backgroundColor = Colors.white;
+  static const Color _primaryColor = Color(0xFFEE8E42);
+  static const Color _secondaryColor = Color(0xFF23529C);
   static const Color _textPrimary = Color(0xFF111827);
   static const Color _textSecondary = Color(0xFF6B7280);
   static const Color _borderColor = Color(0xFFE5E7EB);
-  static const Color _cardColor = Color(0xFFF9FAFB);
-  static const Color _successColor = Color(0xFF10B981);
-  static const Color _warningColor = Color(0xFFF59E0B);
 
-  List<Batch> activeBatches = MockData.batches;
-  bool _isRefreshing = false;
+  // Position fictive du livreur (ex: Centre de Dakar)
+  final LatLng _currentCourierPos = const LatLng(14.6928, -17.4467);
+
+  List<Batch> nearbyBatches = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadBatches();
+  }
+
+  // --- LOGIQUE DE FILTRAGE PAR PROXIMITÉ (LES 4 PLUS PROCHES) ---
+  void _loadBatches() {
+    final Distance distanceCalculator = const Distance();
+
+    // 1. Filtrer par statut (Disponible ou En cours)
+    List<Batch> filtered = MockData.batches.where((b) {
+      return b.status == BatchStatus.DISPONIBLE ||
+          b.status == BatchStatus.EN_COURS;
+    }).toList();
+
+    // 2. Calculer la distance pour chaque lot et trier
+    List<Map<String, dynamic>> batchWithDistance = filtered.map((batch) {
+      double dist = 0;
+      if (batch.deliveries.isNotEmpty) {
+        // Distance entre le livreur et la première livraison du lot
+        dist = distanceCalculator.as(
+          LengthUnit.Kilometer,
+          _currentCourierPos,
+          LatLng(
+            batch.deliveries.first.deliveryLocation.latitude ?? 0,
+            batch.deliveries.first.deliveryLocation.longitude ?? 0,
+          ),
+        );
+      }
+      return {'batch': batch, 'distance': dist};
+    }).toList();
+
+    // Trier du plus proche au plus loin
+    batchWithDistance.sort((a, b) => a['distance'].compareTo(b['distance']));
+
+    setState(() {
+      // 3. Prendre uniquement les 4 plus proches
+      nearbyBatches = batchWithDistance
+          .take(4)
+          .map((e) => e['batch'] as Batch)
+          .toList();
+    });
+  }
 
   Future<void> _refreshBatches() async {
-    setState(() => _isRefreshing = true);
-    // Simulation d'un appel API ou chargement de données
     await Future.delayed(const Duration(milliseconds: 800));
-    setState(() {
-      activeBatches = MockData.batches;
-      _isRefreshing = false;
-    });
+    _loadBatches();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _backgroundColor,
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: _backgroundColor,
+        backgroundColor: Colors.white,
         elevation: 0,
-        centerTitle: false,
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              "Tournées disponibles",
+              "Tournées à proximité",
               style: TextStyle(
-                fontSize: 24,
+                fontSize: 20,
                 fontWeight: FontWeight.w900,
                 color: _textPrimary,
-                letterSpacing: -0.5,
               ),
             ),
             Text(
-              "${activeBatches.length} lot${activeBatches.length > 1 ? 's' : ''} à récupérer",
-              style: const TextStyle(fontSize: 14, color: _textSecondary),
+              "Les 4 lots les plus proches de vous",
+              style: TextStyle(
+                fontSize: 13,
+                color: _textSecondary.withOpacity(0.8),
+              ),
             ),
           ],
         ),
-        actions: [
-          IconButton(
-            onPressed: _refreshBatches,
-            icon: const Icon(Icons.refresh_rounded, color: _secondaryColor),
-          ),
-        ],
       ),
-      body: _isRefreshing
-          ? _buildLoadingState()
-          : activeBatches.isEmpty
-          ? _buildEmptyState()
-          : _buildBatchesList(),
+      body: RefreshIndicator(
+        onRefresh: _refreshBatches,
+        color: _primaryColor,
+        child: nearbyBatches.isEmpty
+            ? _buildEmptyState()
+            : ListView.separated(
+                padding: const EdgeInsets.all(20),
+                itemCount: nearbyBatches.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 16),
+                itemBuilder: (context, index) =>
+                    _buildBatchCard(nearbyBatches[index]),
+              ),
+      ),
     );
   }
 
-  Widget _buildLoadingState() {
-    return const Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          SizedBox(
-            width: 60,
-            height: 60,
-            child: CircularProgressIndicator(
-              strokeWidth: 3,
-              color: _secondaryColor,
-            ),
+  Widget _buildBatchCard(Batch batch) {
+    return GestureDetector(
+      onTap: () async {
+        final result = await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => BatchDetailScreen(batch: batch),
           ),
-          SizedBox(height: 20),
-          Text(
-            "Chargement des tournées...",
-            style: TextStyle(
-              fontSize: 16,
-              color: _textSecondary,
-              fontWeight: FontWeight.w500,
+        );
+
+        if (result == 'completed') {
+          _loadBatches();
+          _showSuccessSnackbar();
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: _borderColor),
+          boxShadow: [
+            BoxShadow(
+              color: _secondaryColor.withOpacity(0.04),
+              blurRadius: 15,
+              offset: const Offset(0, 8),
             ),
-          ),
-        ],
+          ],
+        ),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: _secondaryColor.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.local_shipping_rounded,
+                    color: _secondaryColor,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Lot #${batch.id}",
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 16,
+                          color: _textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        batch.quartier,
+                        style: const TextStyle(
+                          color: _textSecondary,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      "${batch.deliveryFee.toInt()} FCFA",
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w900,
+                        color: _primaryColor,
+                        fontSize: 15,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    _buildStatusBadge(batch.status),
+                  ],
+                ),
+              ],
+            ),
+            const Divider(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.inventory_2_outlined,
+                      size: 16,
+                      color: _textSecondary,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      "${batch.orderIds.length} colis",
+                      style: const TextStyle(
+                        color: _textSecondary,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+                const Row(
+                  children: [
+                    Text(
+                      "Détails",
+                      style: TextStyle(
+                        color: _secondaryColor,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                    ),
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      color: _secondaryColor,
+                      size: 20,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatusBadge(BatchStatus status) {
+    bool isAvailable = status == BatchStatus.DISPONIBLE;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: (isAvailable ? Colors.green : _primaryColor).withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        isAvailable ? "Disponible" : "En cours",
+        style: TextStyle(
+          color: isAvailable ? Colors.green : _primaryColor,
+          fontSize: 10,
+          fontWeight: FontWeight.bold,
+        ),
       ),
     );
   }
 
   Widget _buildEmptyState() {
-    return RefreshIndicator(
-      color: _primaryColor,
-      onRefresh: _refreshBatches,
-      child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        child: SizedBox(
-          height: MediaQuery.of(context).size.height * 0.8,
-          child: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  width: 120,
-                  height: 120,
-                  decoration: BoxDecoration(
-                    color: _cardColor,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: _borderColor, width: 1.5),
-                  ),
-                  child: const Icon(
-                    Icons.inbox_outlined,
-                    size: 60,
-                    color: _textSecondary,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                const Text(
-                  "Aucune tournée disponible",
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
-                    color: _textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 40),
-                  child: Text(
-                    "Les nouvelles tournées apparaîtront ici lorsqu'elles seront créées",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 15,
-                      color: _textSecondary,
-                      height: 1.5,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 32),
-                ElevatedButton.icon(
-                  onPressed: _refreshBatches,
-                  icon: const Icon(Icons.refresh_rounded, color: Colors.white),
-                  label: const Text(
-                    "Actualiser",
-                    style: TextStyle(color: Colors.white),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _secondaryColor,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 16,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildBatchesList() {
-    return RefreshIndicator(
-      color: _primaryColor,
-      onRefresh: _refreshBatches,
-      child: ListView.separated(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-        itemCount: activeBatches.length,
-        separatorBuilder: (context, index) => const SizedBox(height: 16),
-        itemBuilder: (context, index) {
-          final batch = activeBatches[index];
-          final deliveryCount = batch.orderIds.length;
-          final hasOrders = deliveryCount > 0;
-          return _buildBatchCard(batch, hasOrders, deliveryCount);
-        },
-      ),
-    );
-  }
-
-  Widget _buildBatchCard(Batch batch, bool hasOrders, int deliveryCount) {
-    return GestureDetector(
-      onTap: () {
-        if (hasOrders) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => BatchDetailScreen(batch: batch),
-            ),
-          );
-        } else {
-          _showEmptyBatchSnackbar();
-        }
-      },
+    return SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
       child: Container(
-        decoration: BoxDecoration(
-          color: _backgroundColor,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: hasOrders ? _borderColor : _warningColor.withOpacity(0.3),
-            width: 1.5,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Stack(
+        height: MediaQuery.of(context).size.height * 0.7,
+        alignment: Alignment.center,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 48,
-                              height: 48,
-                              decoration: BoxDecoration(
-                                color: hasOrders
-                                    ? _secondaryColor.withOpacity(0.1)
-                                    : _warningColor.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Icon(
-                                hasOrders
-                                    ? Icons.local_shipping_rounded
-                                    : Icons.error_outline_rounded,
-                                color: hasOrders
-                                    ? _secondaryColor
-                                    : _warningColor,
-                                size: 24,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    "Lot ${batch.id}",
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w800,
-                                      color: _textPrimary,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Row(
-                                    children: [
-                                      const Icon(
-                                        Icons.location_on_outlined,
-                                        size: 14,
-                                        color: _textSecondary,
-                                      ),
-                                      const SizedBox(width: 6),
-                                      Flexible(
-                                        child: Text(
-                                          batch.quartier,
-                                          style: const TextStyle(
-                                            fontSize: 14,
-                                            color: _textSecondary,
-                                          ),
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      if (!hasOrders)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: _warningColor.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: _warningColor.withOpacity(0.3),
-                            ),
-                          ),
-                          child: const Text(
-                            "Vide",
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              color: _warningColor,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: _cardColor,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        _buildStatItem(
-                          icon: Icons.inventory_2_outlined,
-                          value: deliveryCount.toString(),
-                          label: "Colis",
-                          color: hasOrders ? _primaryColor : _textSecondary,
-                        ),
-                        _buildStatItem(
-                          icon: Icons.store_outlined,
-                          value: batch.vendorName,
-                          label: "Vendeur",
-                          color: hasOrders ? _secondaryColor : _textSecondary,
-                          isText: true,
-                        ),
-                        _buildStatItem(
-                          icon: Icons.schedule_outlined,
-                          value: "${deliveryCount * 15} min",
-                          label: "Estimation",
-                          color: hasOrders ? _successColor : _textSecondary,
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Container(
-                    height: 44,
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      color: hasOrders
-                          ? _secondaryColor.withOpacity(0.1)
-                          : _borderColor,
-                    ),
-                    child: Center(
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            hasOrders ? "Voir les détails" : "Lot indisponible",
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: hasOrders
-                                  ? _secondaryColor
-                                  : _textSecondary,
-                            ),
-                          ),
-                          if (hasOrders) ...[
-                            const SizedBox(width: 8),
-                            const Icon(
-                              Icons.arrow_forward_rounded,
-                              size: 16,
-                              color: _secondaryColor,
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
+            Icon(
+              Icons.explore_outlined,
+              size: 80,
+              color: _textSecondary.withOpacity(0.2),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              "Aucun lot à proximité",
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+                color: _textPrimary,
               ),
             ),
-            if (batch.createdAt.isAfter(
-              DateTime.now().subtract(const Duration(hours: 24)),
-            ))
-              Positioned(
-                top: 12,
-                right: 12,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: _primaryColor,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Text(
-                    "Nouveau",
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.3,
-                    ),
-                  ),
-                ),
-              ),
+            const SizedBox(height: 8),
+            const Text(
+              "Tirez vers le bas pour actualiser",
+              style: TextStyle(color: _textSecondary),
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildStatItem({
-    required IconData icon,
-    required String value,
-    required String label,
-    required Color color,
-    bool isText = false,
-  }) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 16, color: color),
-        const SizedBox(height: 6),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: isText ? 12 : 14,
-            fontWeight: isText ? FontWeight.w600 : FontWeight.w800,
-            color: color,
-          ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 10,
-            color: _textSecondary,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ],
-    );
-  }
-
-  void _showEmptyBatchSnackbar() {
+  void _showSuccessSnackbar() {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: const Row(
-          children: [
-            Icon(Icons.warning_amber_rounded, color: Colors.white, size: 20),
-            SizedBox(width: 12),
-            Expanded(child: Text("Ce lot ne contient aucune commande")),
-          ],
-        ),
-        backgroundColor: _warningColor,
+        content: const Text("Tournée terminée avec succès !"),
+        backgroundColor: Colors.green,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        margin: const EdgeInsets.all(20),
-        duration: const Duration(seconds: 3),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
     );
   }

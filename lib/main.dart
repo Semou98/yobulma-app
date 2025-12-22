@@ -6,19 +6,27 @@ import 'package:yoboulma_app/screens/auth/welcome_screen.dart';
 import 'package:yoboulma_app/screens/admin/dashboard_screen.dart';
 import 'package:yoboulma_app/screens/vendeur/orders_list_screen.dart';
 import 'package:yoboulma_app/screens/livreur/batches_list_screen.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:yoboulma_app/services/auth_service.dart';
+
+// Import de tes services et modèles
+import 'models/user_model.dart';
+import 'core/enums.dart';
 
 void main() async {
+  // Indispensable pour utiliser SharedPreferences avant runApp
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Version simplifiée pour déboguer
-  runApp(const YobulmaApp());
+  // 1. On récupère l'utilisateur stocké en JSON
+  User? loggedUser = await AuthService.getUser();
+  
+  // 2. On lance l'app avec l'utilisateur (s'il existe)
+  runApp(YobulmaApp(initialUser: loggedUser));
 }
 
 class YobulmaApp extends StatelessWidget {
-  final String? initialRole;
+  final User? initialUser;
 
-  const YobulmaApp({super.key, this.initialRole});
+  const YobulmaApp({super.key, this.initialUser});
 
   @override
   Widget build(BuildContext context) {
@@ -26,7 +34,6 @@ class YobulmaApp extends StatelessWidget {
       title: 'Yobulma',
       debugShowCheckedModeBanner: false,
       
-      // Thème personnalisé
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(
@@ -41,12 +48,12 @@ class YobulmaApp extends StatelessWidget {
         scaffoldBackgroundColor: const Color(0xFFF8F9FA),
       ),
 
-      // Utilisation du builder pour injecter Khady partout
+      // Injection du Chatbot Khady sur tous les écrans
       builder: (context, child) {
         return KhadyChatWrapper(child: child!);
       },
 
-      // Routes nommées pour navigation
+      // Routes nommées
       routes: {
         '/welcome': (context) => const WelcomeScreen(),
         '/login': (context) => const LoginScreen(),
@@ -56,39 +63,28 @@ class YobulmaApp extends StatelessWidget {
         '/livreur': (context) => const LivreurBatchesListScreen(),
       },
 
-      // Écran d'accueil avec Builder pour avoir un contexte
-      home: Builder(
-        builder: (context) {
-          return _getInitialScreen(context);
-        },
-      ),
+      // Écran de démarrage dynamique
+      home: _getInitialScreen(),
     );
   }
 
-  Widget _getInitialScreen(BuildContext context) {
-    print('Rôle initial: $initialRole');
-    
-    // Si pas de rôle, retourner WelcomeScreen
-    if (initialRole == null || initialRole!.isEmpty) {
-      print('Aucun rôle sauvegardé');
+  /// Logique de redirection automatique au démarrage
+  Widget _getInitialScreen() {
+    if (initialUser == null) {
       return const WelcomeScreen();
     }
 
-    print('Tentative de redirection pour le rôle: $initialRole');
-    
-    // Redirection selon le rôle
-    switch (initialRole) {
-      case 'ADMIN':
-        print('Redirection vers AdminDashboardScreen');
+    // On vérifie le premier rôle de l'utilisateur
+    final role = initialUser!.roles.first;
+
+    switch (role) {
+      case Role.ADMIN:
         return const AdminDashboardScreen();
-      case 'VENDEUR':
-        print('Redirection vers OrderListScreen');
+      case Role.VENDEUR:
         return const OrderListScreen();
-      case 'LIVREUR':
-        print('Redirection vers LivreurBatchesListScreen');
+      case Role.LIVREUR:
         return const LivreurBatchesListScreen();
       default:
-        print('Rôle non reconnu, retour à WelcomeScreen');
         return const WelcomeScreen();
     }
   }

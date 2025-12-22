@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:yoboulma_app/services/auth_service.dart';
 import '../../models/user_model.dart';
 import '../../core/enums.dart';
-import '../../data/mock_data.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -34,12 +34,6 @@ class _RegisterScreenState extends State<RegisterScreen>
   static const Color _errorColor = Color(0xFFEF4444);
   static const Color _cardColor = Color(0xFFF9FAFB);
 
-  final LinearGradient _primaryGradient = const LinearGradient(
-    colors: [_primaryColor, Color(0xFFFFA84C)],
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-  );
-
   final LinearGradient _secondaryGradient = const LinearGradient(
     colors: [_secondaryColor, Color(0xFF2D63CC)],
     begin: Alignment.topLeft,
@@ -63,8 +57,10 @@ class _RegisterScreenState extends State<RegisterScreen>
     );
 
     _animationController.forward();
-    _nameController.addListener(_validateName);
-    _phoneController.addListener(_validatePhone);
+
+    // Ajout des listeners pour valider en temps réel
+    _nameController.addListener(() => _validateName());
+    _phoneController.addListener(() => _validatePhone());
   }
 
   @override
@@ -76,48 +72,51 @@ class _RegisterScreenState extends State<RegisterScreen>
   }
 
   void _validateName() {
-    final isValid = _nameController.text.trim().length >= 2;
+    final isValid = _nameController.text.trim().length >= 3;
     if (_isNameValid != isValid) setState(() => _isNameValid = isValid);
   }
 
   void _validatePhone() {
     final phone = _phoneController.text.trim();
-    // Format simple pour démo: commence par 7 et fait au moins 9 chiffres
-    final isValid = phone.length >= 9 && phone.startsWith('7');
+    // Validation : 9 chiffres pour le Sénégal
+    final isValid =
+        phone.length == 9 &&
+        (phone.startsWith('77') ||
+            phone.startsWith('78') ||
+            phone.startsWith('76') ||
+            phone.startsWith('70'));
     if (_isPhoneValid != isValid) setState(() => _isPhoneValid = isValid);
   }
 
   bool get _isFormValid => _isNameValid && _isPhoneValid;
 
-  void _handleRegister() {
+  void _handleRegister() async {
     if (!_isFormValid) return;
-
     setState(() => _isLoading = true);
 
-    Future.delayed(const Duration(seconds: 1), () {
-      if (!mounted) return;
+    try {
+      // Création de l'objet utilisateur
+      final newUser = User(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        name: _nameController.text.trim(),
+        phoneNumber: _phoneController.text.trim(),
+        roles: [_selectedRole],
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
 
-      try {
-        final newUser = User(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
-          name: _nameController.text.trim(),
-          phoneNumber: _phoneController.text.trim(),
-          roles: [_selectedRole],
-          createdAt: DateTime.now(),
-          updatedAt: DateTime.now(),
-        );
+      // SAUVEGARDE LOCALE via le service JSON
+      await AuthService.saveUser(newUser);
 
-        MockData.addUser(newUser);
-        setState(() => _isLoading = false);
-        _showSuccessDialog();
-      } catch (e) {
-        setState(() => _isLoading = false);
-        _showErrorSnackBar("Erreur lors de la création du compte.");
-      }
-    });
+      setState(() => _isLoading = false);
+      _showSuccessDialog();
+    } catch (e) {
+      setState(() => _isLoading = false);
+      _showErrorSnackBar("Erreur lors de la création du compte.");
+    }
   }
 
-  // --- UI BUILDING METHODS ---
+  // --- UI COMPONENTS ---
 
   @override
   Widget build(BuildContext context) {
@@ -229,6 +228,7 @@ class _RegisterScreenState extends State<RegisterScreen>
   }) {
     return TextField(
       controller: controller,
+      textCapitalization: TextCapitalization.words,
       decoration: InputDecoration(
         hintText: hintText,
         prefixIcon: Icon(
@@ -280,6 +280,15 @@ class _RegisterScreenState extends State<RegisterScreen>
                 borderRadius: BorderRadius.circular(16),
                 borderSide: BorderSide.none,
               ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide(
+                  color: _phoneController.text.isEmpty
+                      ? Colors.transparent
+                      : (_isPhoneValid ? _successColor : _errorColor)
+                            .withOpacity(0.3),
+                ),
+              ),
             ),
           ),
         ),
@@ -288,14 +297,24 @@ class _RegisterScreenState extends State<RegisterScreen>
   }
 
   Widget _buildRoleSection() {
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          child: _buildRoleCard("Vendeur", Role.VENDEUR, Icons.storefront),
+        const Text(
+          "Je suis un :",
+          style: TextStyle(fontWeight: FontWeight.bold, color: _textPrimary),
         ),
-        const SizedBox(width: 15),
-        Expanded(
-          child: _buildRoleCard("Livreur", Role.LIVREUR, Icons.motorcycle),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _buildRoleCard("Vendeur", Role.VENDEUR, Icons.storefront),
+            ),
+            const SizedBox(width: 15),
+            Expanded(
+              child: _buildRoleCard("Livreur", Role.LIVREUR, Icons.motorcycle),
+            ),
+          ],
         ),
       ],
     );
@@ -345,7 +364,14 @@ class _RegisterScreenState extends State<RegisterScreen>
           elevation: 0,
         ),
         child: _isLoading
-            ? const CircularProgressIndicator(color: Colors.white)
+            ? const SizedBox(
+                height: 24,
+                width: 24,
+                child: CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 2,
+                ),
+              )
             : const Text(
                 "Créer mon compte",
                 style: TextStyle(
@@ -364,7 +390,7 @@ class _RegisterScreenState extends State<RegisterScreen>
         onPressed: () => Navigator.pop(context),
         child: const Text(
           "Déjà un compte ? Connectez-vous",
-          style: TextStyle(color: _secondaryColor),
+          style: TextStyle(color: _secondaryColor, fontWeight: FontWeight.w600),
         ),
       ),
     );
@@ -373,16 +399,43 @@ class _RegisterScreenState extends State<RegisterScreen>
   void _showSuccessDialog() {
     showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (context) => AlertDialog(
-        title: const Text("Félicitations !"),
-        content: const Text("Votre compte a été créé avec succès."),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Icon(Icons.check_circle, color: _successColor, size: 60),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              "Félicitations !",
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+            ),
+            SizedBox(height: 8),
+            Text(
+              "Votre compte a été créé avec succès. Vous pouvez maintenant vous connecter.",
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
         actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context); // Close dialog
-              Navigator.pop(context); // Back to login
-            },
-            child: const Text("Génial"),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context); // Ferme le dialogue
+                Navigator.pop(context); // Retourne au Login
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _secondaryColor,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Text(
+                "Se connecter",
+                style: TextStyle(color: Colors.white),
+              ),
+            ),
           ),
         ],
       ),
@@ -391,7 +444,11 @@ class _RegisterScreenState extends State<RegisterScreen>
 
   void _showErrorSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: _errorColor),
+      SnackBar(
+        content: Text(message),
+        backgroundColor: _errorColor,
+        behavior: SnackBarBehavior.floating,
+      ),
     );
   }
 }

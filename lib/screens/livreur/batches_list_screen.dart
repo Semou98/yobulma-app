@@ -12,7 +12,7 @@ class LivreurBatchesListScreen extends StatefulWidget {
 }
 
 class _LivreurBatchesListScreenState extends State<LivreurBatchesListScreen> {
-  // Charte graphique
+  // Charte graphique centralisée
   static const Color _primaryColor = Color(0xFFEE8E42); // Orange
   static const Color _secondaryColor = Color(0xFF23529C); // Bleu
   static const Color _backgroundColor = Colors.white;
@@ -28,7 +28,7 @@ class _LivreurBatchesListScreenState extends State<LivreurBatchesListScreen> {
 
   Future<void> _refreshBatches() async {
     setState(() => _isRefreshing = true);
-    // Simulation d'un rafraîchissement
+    // Simulation d'un appel API ou chargement de données
     await Future.delayed(const Duration(milliseconds: 800));
     setState(() {
       activeBatches = MockData.batches;
@@ -47,7 +47,7 @@ class _LivreurBatchesListScreenState extends State<LivreurBatchesListScreen> {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
+            const Text(
               "Tournées disponibles",
               style: TextStyle(
                 fontSize: 24,
@@ -58,33 +58,27 @@ class _LivreurBatchesListScreenState extends State<LivreurBatchesListScreen> {
             ),
             Text(
               "${activeBatches.length} lot${activeBatches.length > 1 ? 's' : ''} à récupérer",
-              style: TextStyle(
-                fontSize: 14,
-                color: _textSecondary,
-              ),
+              style: const TextStyle(fontSize: 14, color: _textSecondary),
             ),
           ],
         ),
         actions: [
           IconButton(
             onPressed: _refreshBatches,
-            icon: Icon(
-              Icons.refresh_rounded,
-              color: _secondaryColor,
-            ),
+            icon: const Icon(Icons.refresh_rounded, color: _secondaryColor),
           ),
         ],
       ),
       body: _isRefreshing
           ? _buildLoadingState()
           : activeBatches.isEmpty
-              ? _buildEmptyState()
-              : _buildBatchesList(),
+          ? _buildEmptyState()
+          : _buildBatchesList(),
     );
   }
 
   Widget _buildLoadingState() {
-    return Center(
+    return const Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -96,7 +90,7 @@ class _LivreurBatchesListScreenState extends State<LivreurBatchesListScreen> {
               color: _secondaryColor,
             ),
           ),
-          const SizedBox(height: 20),
+          SizedBox(height: 20),
           Text(
             "Chargement des tournées...",
             style: TextStyle(
@@ -130,14 +124,14 @@ class _LivreurBatchesListScreenState extends State<LivreurBatchesListScreen> {
                     shape: BoxShape.circle,
                     border: Border.all(color: _borderColor, width: 1.5),
                   ),
-                  child: Icon(
+                  child: const Icon(
                     Icons.inbox_outlined,
                     size: 60,
                     color: _textSecondary,
                   ),
                 ),
                 const SizedBox(height: 24),
-                Text(
+                const Text(
                   "Aucune tournée disponible",
                   style: TextStyle(
                     fontSize: 20,
@@ -146,8 +140,8 @@ class _LivreurBatchesListScreenState extends State<LivreurBatchesListScreen> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 40),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 40),
                   child: Text(
                     "Les nouvelles tournées apparaîtront ici lorsqu'elles seront créées",
                     textAlign: TextAlign.center,
@@ -161,7 +155,7 @@ class _LivreurBatchesListScreenState extends State<LivreurBatchesListScreen> {
                 const SizedBox(height: 32),
                 ElevatedButton.icon(
                   onPressed: _refreshBatches,
-                  icon: Icon(Icons.refresh_rounded, color: Colors.white),
+                  icon: const Icon(Icons.refresh_rounded, color: Colors.white),
                   label: const Text(
                     "Actualiser",
                     style: TextStyle(color: Colors.white),
@@ -197,7 +191,6 @@ class _LivreurBatchesListScreenState extends State<LivreurBatchesListScreen> {
           final batch = activeBatches[index];
           final deliveryCount = batch.orderIds.length;
           final hasOrders = deliveryCount > 0;
-          
           return _buildBatchCard(batch, hasOrders, deliveryCount);
         },
       ),
@@ -241,7 +234,6 @@ class _LivreurBatchesListScreenState extends State<LivreurBatchesListScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // En-tête avec quartier et statut
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -252,17 +244,17 @@ class _LivreurBatchesListScreenState extends State<LivreurBatchesListScreen> {
                               width: 48,
                               height: 48,
                               decoration: BoxDecoration(
-                                color: hasOrders 
-                                    ? _secondaryColor.withOpacity(0.1) 
+                                color: hasOrders
+                                    ? _secondaryColor.withOpacity(0.1)
                                     : _warningColor.withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Icon(
-                                hasOrders 
-                                    ? Icons.local_shipping_rounded 
+                                hasOrders
+                                    ? Icons.local_shipping_rounded
                                     : Icons.error_outline_rounded,
-                                color: hasOrders 
-                                    ? _secondaryColor 
+                                color: hasOrders
+                                    ? _secondaryColor
                                     : _warningColor,
                                 size: 24,
                               ),
@@ -274,7 +266,7 @@ class _LivreurBatchesListScreenState extends State<LivreurBatchesListScreen> {
                                 children: [
                                   Text(
                                     "Lot ${batch.id}",
-                                    style: TextStyle(
+                                    style: const TextStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.w800,
                                       color: _textPrimary,
@@ -283,7 +275,7 @@ class _LivreurBatchesListScreenState extends State<LivreurBatchesListScreen> {
                                   const SizedBox(height: 4),
                                   Row(
                                     children: [
-                                      Icon(
+                                      const Icon(
                                         Icons.location_on_outlined,
                                         size: 14,
                                         color: _textSecondary,
@@ -292,7 +284,7 @@ class _LivreurBatchesListScreenState extends State<LivreurBatchesListScreen> {
                                       Flexible(
                                         child: Text(
                                           batch.quartier,
-                                          style: TextStyle(
+                                          style: const TextStyle(
                                             fontSize: 14,
                                             color: _textSecondary,
                                           ),
@@ -318,10 +310,9 @@ class _LivreurBatchesListScreenState extends State<LivreurBatchesListScreen> {
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
                               color: _warningColor.withOpacity(0.3),
-                              width: 1,
                             ),
                           ),
-                          child: Text(
+                          child: const Text(
                             "Vide",
                             style: TextStyle(
                               fontSize: 11,
@@ -332,10 +323,7 @@ class _LivreurBatchesListScreenState extends State<LivreurBatchesListScreen> {
                         ),
                     ],
                   ),
-
                   const SizedBox(height: 16),
-
-                  // Statistiques
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
@@ -360,24 +348,21 @@ class _LivreurBatchesListScreenState extends State<LivreurBatchesListScreen> {
                         ),
                         _buildStatItem(
                           icon: Icons.schedule_outlined,
-                          value: "${(deliveryCount * 15).toString()} min",
+                          value: "${deliveryCount * 15} min",
                           label: "Estimation",
                           color: hasOrders ? _successColor : _textSecondary,
                         ),
                       ],
                     ),
                   ),
-
                   const SizedBox(height: 12),
-
-                  // Bouton d'action
                   Container(
                     height: 44,
                     width: double.infinity,
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(12),
-                      color: hasOrders 
-                          ? _secondaryColor.withOpacity(0.1) 
+                      color: hasOrders
+                          ? _secondaryColor.withOpacity(0.1)
                           : _borderColor,
                     ),
                     child: Center(
@@ -389,14 +374,14 @@ class _LivreurBatchesListScreenState extends State<LivreurBatchesListScreen> {
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
-                              color: hasOrders 
-                                  ? _secondaryColor 
+                              color: hasOrders
+                                  ? _secondaryColor
                                   : _textSecondary,
                             ),
                           ),
                           if (hasOrders) ...[
                             const SizedBox(width: 8),
-                            Icon(
+                            const Icon(
                               Icons.arrow_forward_rounded,
                               size: 16,
                               color: _secondaryColor,
@@ -409,8 +394,6 @@ class _LivreurBatchesListScreenState extends State<LivreurBatchesListScreen> {
                 ],
               ),
             ),
-
-            // Badge de nouveau si le lot est récent
             if (batch.createdAt.isAfter(
               DateTime.now().subtract(const Duration(hours: 24)),
             ))
@@ -426,7 +409,7 @@ class _LivreurBatchesListScreenState extends State<LivreurBatchesListScreen> {
                     color: _primaryColor,
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Text(
+                  child: const Text(
                     "Nouveau",
                     style: TextStyle(
                       fontSize: 10,
@@ -451,12 +434,9 @@ class _LivreurBatchesListScreenState extends State<LivreurBatchesListScreen> {
     bool isText = false,
   }) {
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(
-          icon,
-          size: 16,
-          color: color,
-        ),
+        Icon(icon, size: 16, color: color),
         const SizedBox(height: 6),
         Text(
           value,
@@ -471,7 +451,7 @@ class _LivreurBatchesListScreenState extends State<LivreurBatchesListScreen> {
         const SizedBox(height: 4),
         Text(
           label,
-          style: TextStyle(
+          style: const TextStyle(
             fontSize: 10,
             color: _textSecondary,
             fontWeight: FontWeight.w500,
@@ -484,13 +464,11 @@ class _LivreurBatchesListScreenState extends State<LivreurBatchesListScreen> {
   void _showEmptyBatchSnackbar() {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Row(
+        content: const Row(
           children: [
             Icon(Icons.warning_amber_rounded, color: Colors.white, size: 20),
-            const SizedBox(width: 12),
-            const Expanded(
-              child: Text("Ce lot ne contient aucune commande"),
-            ),
+            SizedBox(width: 12),
+            Expanded(child: Text("Ce lot ne contient aucune commande")),
           ],
         ),
         backgroundColor: _warningColor,

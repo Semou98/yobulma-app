@@ -11,8 +11,8 @@ class Order {
   final String otp;
   final String trackingLink;
   OrderStatus status;
-  final String? batchId;
-  final String? livreurId;
+  String? batchId;     // Corrigé : Retrait de final
+  String? livreurId;   // Corrigé : Retrait de final
   final DateTime createdAt;
   DateTime updatedAt;
 

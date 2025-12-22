@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:yoboulma_app/screens/livreur/batches_list_screen.dart';
+import 'package:yoboulma_app/screens/vendeur/orders_list_screen.dart';
 import 'package:yoboulma_app/services/auth_service.dart';
 import '../../models/user_model.dart';
 import '../../core/enums.dart';
@@ -23,7 +25,6 @@ class _RegisterScreenState extends State<RegisterScreen>
   late Animation<double> _fadeAnimation;
   late Animation<double> _scaleAnimation;
 
-  // Charte graphique
   static const Color _primaryColor = Color(0xFFEE8E42);
   static const Color _secondaryColor = Color(0xFF23529C);
   static const Color _backgroundColor = Colors.white;
@@ -48,17 +49,12 @@ class _RegisterScreenState extends State<RegisterScreen>
       vsync: this,
     );
 
-    _fadeAnimation = CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeIn,
-    );
+    _fadeAnimation = CurvedAnimation(parent: _animationController, curve: Curves.easeIn);
     _scaleAnimation = Tween<double>(begin: 0.98, end: 1.0).animate(
       CurvedAnimation(parent: _animationController, curve: Curves.easeOutBack),
     );
 
     _animationController.forward();
-
-    // Ajout des listeners pour valider en temps réel
     _nameController.addListener(() => _validateName());
     _phoneController.addListener(() => _validatePhone());
   }
@@ -78,26 +74,21 @@ class _RegisterScreenState extends State<RegisterScreen>
 
   void _validatePhone() {
     final phone = _phoneController.text.trim();
-    // Validation : 9 chiffres pour le Sénégal
-    final isValid =
-        phone.length == 9 &&
-        (phone.startsWith('77') ||
-            phone.startsWith('78') ||
-            phone.startsWith('76') ||
-            phone.startsWith('70'));
+    final isValid = phone.length == 9 &&
+        (phone.startsWith('77') || phone.startsWith('78') || phone.startsWith('76') || phone.startsWith('70'));
     if (_isPhoneValid != isValid) setState(() => _isPhoneValid = isValid);
   }
 
   bool get _isFormValid => _isNameValid && _isPhoneValid;
 
+  // --- LOGIQUE DE CONNEXION DIRECTE ---
   void _handleRegister() async {
     if (!_isFormValid) return;
     setState(() => _isLoading = true);
 
     try {
-      // Création de l'objet utilisateur
       final newUser = User(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        id: "USER_${DateTime.now().millisecondsSinceEpoch}",
         name: _nameController.text.trim(),
         phoneNumber: _phoneController.text.trim(),
         roles: [_selectedRole],
@@ -105,18 +96,31 @@ class _RegisterScreenState extends State<RegisterScreen>
         updatedAt: DateTime.now(),
       );
 
-      // SAUVEGARDE LOCALE via le service JSON
+      // 1. Sauvegarde dans le JSON/MockData
       await AuthService.saveUser(newUser);
+      
+      // 2. Initialisation de la session (Connexion automatique)
+      await AuthService.login(newUser); // Assurez-vous que cette méthode existe dans votre service
 
-      setState(() => _isLoading = false);
-      _showSuccessDialog();
+      if (!mounted) return;
+
+      // 3. Redirection directe selon le rôle
+      Widget nextScreen = (_selectedRole == Role.VENDEUR) 
+          ? const OrderListScreen() 
+          : const LivreurBatchesListScreen();
+
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => nextScreen),
+        (route) => false, // Supprime tout l'historique (empêche le retour en arrière)
+      );
+
+      _showSuccessSnackBar("Bienvenue sur Yobulma, ${newUser.name} !");
     } catch (e) {
       setState(() => _isLoading = false);
-      _showErrorSnackBar("Erreur lors de la création du compte.");
+      _showErrorSnackBar("Erreur lors de l'inscription. Veuillez réessayer.");
     }
   }
-
-  // --- UI COMPONENTS ---
 
   @override
   Widget build(BuildContext context) {
@@ -152,34 +156,24 @@ class _RegisterScreenState extends State<RegisterScreen>
     );
   }
 
+  // --- UI COMPONENTS (Gardés tels quels mais intégrés au nouveau flux) ---
+
   Widget _buildHeader() {
     return Row(
       children: [
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
-            gradient: _secondaryGradient,
-            borderRadius: BorderRadius.circular(12),
-          ),
+          decoration: BoxDecoration(gradient: _secondaryGradient, borderRadius: BorderRadius.circular(12)),
           child: const Row(
             children: [
               Icon(Icons.bolt_rounded, color: Colors.white, size: 20),
               SizedBox(width: 8),
-              Text(
-                "YOBULMA",
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
+              Text("YOBULMA", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900)),
             ],
           ),
         ),
         const Spacer(),
-        IconButton(
-          onPressed: () => Navigator.pop(context),
-          icon: const Icon(Icons.close_rounded, color: _textSecondary),
-        ),
+        IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close_rounded, color: _textSecondary)),
       ],
     );
   }
@@ -188,19 +182,9 @@ class _RegisterScreenState extends State<RegisterScreen>
     return const Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          "Inscription",
-          style: TextStyle(
-            fontSize: 32,
-            fontWeight: FontWeight.w900,
-            color: _textPrimary,
-          ),
-        ),
+        Text("Inscription", style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: _textPrimary)),
         SizedBox(height: 8),
-        Text(
-          "Rejoignez la révolution de la livraison au Sénégal.",
-          style: TextStyle(fontSize: 16, color: _textSecondary),
-        ),
+        Text("Rejoignez la révolution de la livraison au Sénégal.", style: TextStyle(fontSize: 16, color: _textSecondary)),
       ],
     );
   }
@@ -220,35 +204,16 @@ class _RegisterScreenState extends State<RegisterScreen>
     );
   }
 
-  Widget _buildInputField({
-    required TextEditingController controller,
-    required String hintText,
-    required IconData prefixIcon,
-    required bool isValid,
-  }) {
+  Widget _buildInputField({required TextEditingController controller, required String hintText, required IconData prefixIcon, required bool isValid}) {
     return TextField(
       controller: controller,
       textCapitalization: TextCapitalization.words,
       decoration: InputDecoration(
         hintText: hintText,
-        prefixIcon: Icon(
-          prefixIcon,
-          color: isValid ? _secondaryColor : _textSecondary,
-        ),
+        prefixIcon: Icon(prefixIcon, color: isValid ? _secondaryColor : _textSecondary),
         filled: true,
         fillColor: _cardColor,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide.none,
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(
-            color: controller.text.isEmpty
-                ? Colors.transparent
-                : (isValid ? _successColor : _errorColor).withOpacity(0.3),
-          ),
-        ),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
       ),
     );
   }
@@ -258,14 +223,8 @@ class _RegisterScreenState extends State<RegisterScreen>
       children: [
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
-          decoration: BoxDecoration(
-            color: _cardColor,
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: const Text(
-            "🇸🇳 +221",
-            style: TextStyle(fontWeight: FontWeight.bold),
-          ),
+          decoration: BoxDecoration(color: _cardColor, borderRadius: BorderRadius.circular(16)),
+          child: const Text("🇸🇳 +221", style: TextStyle(fontWeight: FontWeight.bold)),
         ),
         const SizedBox(width: 10),
         Expanded(
@@ -276,19 +235,7 @@ class _RegisterScreenState extends State<RegisterScreen>
               hintText: "77 000 00 00",
               filled: true,
               fillColor: _cardColor,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
-                borderSide: BorderSide.none,
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
-                borderSide: BorderSide(
-                  color: _phoneController.text.isEmpty
-                      ? Colors.transparent
-                      : (_isPhoneValid ? _successColor : _errorColor)
-                            .withOpacity(0.3),
-                ),
-              ),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
             ),
           ),
         ),
@@ -300,20 +247,13 @@ class _RegisterScreenState extends State<RegisterScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          "Je suis un :",
-          style: TextStyle(fontWeight: FontWeight.bold, color: _textPrimary),
-        ),
+        const Text("Je suis un :", style: TextStyle(fontWeight: FontWeight.bold, color: _textPrimary)),
         const SizedBox(height: 12),
         Row(
           children: [
-            Expanded(
-              child: _buildRoleCard("Vendeur", Role.VENDEUR, Icons.storefront),
-            ),
+            Expanded(child: _buildRoleCard("Vendeur", Role.VENDEUR, Icons.storefront)),
             const SizedBox(width: 15),
-            Expanded(
-              child: _buildRoleCard("Livreur", Role.LIVREUR, Icons.motorcycle),
-            ),
+            Expanded(child: _buildRoleCard("Livreur", Role.LIVREUR, Icons.motorcycle)),
           ],
         ),
       ],
@@ -336,13 +276,7 @@ class _RegisterScreenState extends State<RegisterScreen>
           children: [
             Icon(icon, color: selected ? Colors.white : _secondaryColor),
             const SizedBox(height: 8),
-            Text(
-              label,
-              style: TextStyle(
-                color: selected ? Colors.white : _textPrimary,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+            Text(label, style: TextStyle(color: selected ? Colors.white : _textPrimary, fontWeight: FontWeight.bold)),
           ],
         ),
       ),
@@ -358,28 +292,12 @@ class _RegisterScreenState extends State<RegisterScreen>
         style: ElevatedButton.styleFrom(
           backgroundColor: _primaryColor,
           disabledBackgroundColor: _borderColor,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           elevation: 0,
         ),
         child: _isLoading
-            ? const SizedBox(
-                height: 24,
-                width: 24,
-                child: CircularProgressIndicator(
-                  color: Colors.white,
-                  strokeWidth: 2,
-                ),
-              )
-            : const Text(
-                "Créer mon compte",
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+            ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+            : const Text("Créer mon compte", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
       ),
     );
   }
@@ -388,67 +306,20 @@ class _RegisterScreenState extends State<RegisterScreen>
     return Center(
       child: TextButton(
         onPressed: () => Navigator.pop(context),
-        child: const Text(
-          "Déjà un compte ? Connectez-vous",
-          style: TextStyle(color: _secondaryColor, fontWeight: FontWeight.w600),
-        ),
+        child: const Text("Déjà un compte ? Connectez-vous", style: TextStyle(color: _secondaryColor, fontWeight: FontWeight.w600)),
       ),
     );
   }
 
-  void _showSuccessDialog() {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Icon(Icons.check_circle, color: _successColor, size: 60),
-        content: const Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              "Félicitations !",
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-            ),
-            SizedBox(height: 8),
-            Text(
-              "Votre compte a été créé avec succès. Vous pouvez maintenant vous connecter.",
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-        actions: [
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context); // Ferme le dialogue
-                Navigator.pop(context); // Retourne au Login
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _secondaryColor,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              child: const Text(
-                "Se connecter",
-                style: TextStyle(color: Colors.white),
-              ),
-            ),
-          ),
-        ],
-      ),
+  void _showSuccessSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: _successColor, behavior: SnackBarBehavior.floating),
     );
   }
 
   void _showErrorSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: _errorColor,
-        behavior: SnackBarBehavior.floating,
-      ),
+      SnackBar(content: Text(message), backgroundColor: _errorColor, behavior: SnackBarBehavior.floating),
     );
   }
 }

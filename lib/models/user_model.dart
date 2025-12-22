@@ -4,7 +4,7 @@ class User {
   final String id;
   final String phoneNumber;
   final String? email;
-  final List<Role> roles; // ADMIN, VENDEUR, LIVREUR
+  final List<Role> roles; // ADMIN, VENDEUR, LIVREUR, CLIENT
   final String name;
   final String? adresse;
   final DateTime createdAt;

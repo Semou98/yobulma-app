@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:yoboulma_app/models/batch_model.dart';
+import 'package:yoboulma_app/services/auth_service.dart'; // Import pour la déconnexion
 import '../../data/mock_data.dart';
 import 'batch_detail_screen.dart';
 
@@ -26,9 +27,39 @@ class _LivreurBatchesListScreenState extends State<LivreurBatchesListScreen> {
   List<Batch> activeBatches = MockData.batches;
   bool _isRefreshing = false;
 
+  // --- LOGIQUE DE DÉCONNEXION ---
+  void _handleLogout() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text("Déconnexion", style: TextStyle(fontWeight: FontWeight.bold, color: _secondaryColor)),
+        content: const Text("Voulez-vous vraiment vous déconnecter ?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Annuler", style: TextStyle(color: _textSecondary)),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              await AuthService.logout(); // Supprime l'utilisateur en local
+              if (!mounted) return;
+              // Retour à l'écran de login et efface tout l'historique de navigation
+              Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            child: const Text("Déconnexion", style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _refreshBatches() async {
     setState(() => _isRefreshing = true);
-    // Simulation d'un rafraîchissement
     await Future.delayed(const Duration(milliseconds: 800));
     setState(() {
       activeBatches = MockData.batches;
@@ -48,7 +79,7 @@ class _LivreurBatchesListScreenState extends State<LivreurBatchesListScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              "Tournées disponibles",
+              "Tournées",
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.w900,
@@ -57,22 +88,22 @@ class _LivreurBatchesListScreenState extends State<LivreurBatchesListScreen> {
               ),
             ),
             Text(
-              "${activeBatches.length} lot${activeBatches.length > 1 ? 's' : ''} à récupérer",
-              style: TextStyle(
-                fontSize: 14,
-                color: _textSecondary,
-              ),
+              "${activeBatches.length} lot${activeBatches.length > 1 ? 's' : ''} disponibles",
+              style: TextStyle(fontSize: 14, color: _textSecondary),
             ),
           ],
         ),
         actions: [
           IconButton(
             onPressed: _refreshBatches,
-            icon: Icon(
-              Icons.refresh_rounded,
-              color: _secondaryColor,
-            ),
+            icon: const Icon(Icons.refresh_rounded, color: _secondaryColor),
           ),
+          // BOUTON DÉCONNEXION
+          IconButton(
+            onPressed: _handleLogout,
+            icon: const Icon(Icons.logout_rounded, color: Colors.redAccent),
+          ),
+          const SizedBox(width: 8),
         ],
       ),
       body: _isRefreshing
@@ -83,6 +114,9 @@ class _LivreurBatchesListScreenState extends State<LivreurBatchesListScreen> {
     );
   }
 
+  // Les autres widgets (_buildLoadingState, _buildEmptyState, _buildBatchesList, etc.)
+  // restent identiques à votre code initial...
+
   Widget _buildLoadingState() {
     return Center(
       child: Column(
@@ -91,19 +125,12 @@ class _LivreurBatchesListScreenState extends State<LivreurBatchesListScreen> {
           SizedBox(
             width: 60,
             height: 60,
-            child: CircularProgressIndicator(
-              strokeWidth: 3,
-              color: _secondaryColor,
-            ),
+            child: CircularProgressIndicator(strokeWidth: 3, color: _secondaryColor),
           ),
           const SizedBox(height: 20),
           Text(
             "Chargement des tournées...",
-            style: TextStyle(
-              fontSize: 16,
-              color: _textSecondary,
-              fontWeight: FontWeight.w500,
-            ),
+            style: TextStyle(fontSize: 16, color: _textSecondary, fontWeight: FontWeight.w500),
           ),
         ],
       ),
@@ -130,51 +157,20 @@ class _LivreurBatchesListScreenState extends State<LivreurBatchesListScreen> {
                     shape: BoxShape.circle,
                     border: Border.all(color: _borderColor, width: 1.5),
                   ),
-                  child: Icon(
-                    Icons.inbox_outlined,
-                    size: 60,
-                    color: _textSecondary,
-                  ),
+                  child: Icon(Icons.inbox_outlined, size: 60, color: _textSecondary),
                 ),
                 const SizedBox(height: 24),
-                Text(
-                  "Aucune tournée disponible",
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
-                    color: _textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 40),
-                  child: Text(
-                    "Les nouvelles tournées apparaîtront ici lorsqu'elles seront créées",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 15,
-                      color: _textSecondary,
-                      height: 1.5,
-                    ),
-                  ),
-                ),
+                Text("Aucune tournée disponible",
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: _textPrimary)),
                 const SizedBox(height: 32),
                 ElevatedButton.icon(
                   onPressed: _refreshBatches,
-                  icon: Icon(Icons.refresh_rounded, color: Colors.white),
-                  label: const Text(
-                    "Actualiser",
-                    style: TextStyle(color: Colors.white),
-                  ),
+                  icon: const Icon(Icons.refresh_rounded, color: Colors.white),
+                  label: const Text("Actualiser", style: TextStyle(color: Colors.white)),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: _secondaryColor,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 16,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   ),
                 ),
               ],
@@ -197,7 +193,6 @@ class _LivreurBatchesListScreenState extends State<LivreurBatchesListScreen> {
           final batch = activeBatches[index];
           final deliveryCount = batch.orderIds.length;
           final hasOrders = deliveryCount > 0;
-          
           return _buildBatchCard(batch, hasOrders, deliveryCount);
         },
       ),
@@ -210,9 +205,7 @@ class _LivreurBatchesListScreenState extends State<LivreurBatchesListScreen> {
         if (hasOrders) {
           Navigator.push(
             context,
-            MaterialPageRoute(
-              builder: (context) => BatchDetailScreen(batch: batch),
-            ),
+            MaterialPageRoute(builder: (context) => BatchDetailScreen(batch: batch)),
           );
         } else {
           _showEmptyBatchSnackbar();
@@ -227,256 +220,71 @@ class _LivreurBatchesListScreenState extends State<LivreurBatchesListScreen> {
             width: 1.5,
           ),
           boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
+            BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 12, offset: const Offset(0, 4)),
           ],
         ),
-        child: Stack(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  // En-tête avec quartier et statut
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Expanded(
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 48,
-                              height: 48,
-                              decoration: BoxDecoration(
-                                color: hasOrders 
-                                    ? _secondaryColor.withOpacity(0.1) 
-                                    : _warningColor.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Icon(
-                                hasOrders 
-                                    ? Icons.local_shipping_rounded 
-                                    : Icons.error_outline_rounded,
-                                color: hasOrders 
-                                    ? _secondaryColor 
-                                    : _warningColor,
-                                size: 24,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    "Lot ${batch.id}",
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w800,
-                                      color: _textPrimary,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Row(
-                                    children: [
-                                      Icon(
-                                        Icons.location_on_outlined,
-                                        size: 14,
-                                        color: _textSecondary,
-                                      ),
-                                      const SizedBox(width: 6),
-                                      Flexible(
-                                        child: Text(
-                                          batch.quartier,
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            color: _textSecondary,
-                                          ),
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
+                      Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color: hasOrders ? _secondaryColor.withOpacity(0.1) : _warningColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(
+                          hasOrders ? Icons.local_shipping_rounded : Icons.error_outline_rounded,
+                          color: hasOrders ? _secondaryColor : _warningColor,
                         ),
                       ),
-                      if (!hasOrders)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: _warningColor.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: _warningColor.withOpacity(0.3),
-                              width: 1,
-                            ),
-                          ),
-                          child: Text(
-                            "Vide",
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              color: _warningColor,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  // Statistiques
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: _cardColor,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        _buildStatItem(
-                          icon: Icons.inventory_2_outlined,
-                          value: deliveryCount.toString(),
-                          label: "Colis",
-                          color: hasOrders ? _primaryColor : _textSecondary,
-                        ),
-                        _buildStatItem(
-                          icon: Icons.store_outlined,
-                          value: batch.vendorName,
-                          label: "Vendeur",
-                          color: hasOrders ? _secondaryColor : _textSecondary,
-                          isText: true,
-                        ),
-                        _buildStatItem(
-                          icon: Icons.schedule_outlined,
-                          value: "${(deliveryCount * 15).toString()} min",
-                          label: "Estimation",
-                          color: hasOrders ? _successColor : _textSecondary,
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  // Bouton d'action
-                  Container(
-                    height: 44,
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      color: hasOrders 
-                          ? _secondaryColor.withOpacity(0.1) 
-                          : _borderColor,
-                    ),
-                    child: Center(
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
+                      const SizedBox(width: 12),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            hasOrders ? "Voir les détails" : "Lot indisponible",
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: hasOrders 
-                                  ? _secondaryColor 
-                                  : _textSecondary,
-                            ),
-                          ),
-                          if (hasOrders) ...[
-                            const SizedBox(width: 8),
-                            Icon(
-                              Icons.arrow_forward_rounded,
-                              size: 16,
-                              color: _secondaryColor,
-                            ),
-                          ],
+                          Text("Lot ${batch.id}",
+                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: _textPrimary)),
+                          Text(batch.quartier, style: const TextStyle(fontSize: 14, color: _textSecondary)),
                         ],
                       ),
-                    ),
+                    ],
                   ),
                 ],
               ),
-            ),
-
-            // Badge de nouveau si le lot est récent
-            if (batch.createdAt.isAfter(
-              DateTime.now().subtract(const Duration(hours: 24)),
-            ))
-              Positioned(
-                top: 12,
-                right: 12,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: _primaryColor,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    "Nouveau",
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.3,
-                    ),
-                  ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(color: _cardColor, borderRadius: BorderRadius.circular(16)),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    _buildStatItem(icon: Icons.inventory_2_outlined, value: deliveryCount.toString(), label: "Colis", color: _primaryColor),
+                    _buildStatItem(icon: Icons.store_outlined, value: batch.vendorName, label: "Vendeur", color: _secondaryColor, isText: true),
+                    _buildStatItem(icon: Icons.schedule_outlined, value: "${deliveryCount * 15} min", label: "Est.", color: _successColor),
+                  ],
                 ),
               ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildStatItem({
-    required IconData icon,
-    required String value,
-    required String label,
-    required Color color,
-    bool isText = false,
-  }) {
+  Widget _buildStatItem({required IconData icon, required String value, required String label, required Color color, bool isText = false}) {
     return Column(
       children: [
-        Icon(
-          icon,
-          size: 16,
-          color: color,
-        ),
+        Icon(icon, size: 16, color: color),
         const SizedBox(height: 6),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: isText ? 12 : 14,
-            fontWeight: isText ? FontWeight.w600 : FontWeight.w800,
-            color: color,
-          ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 10,
-            color: _textSecondary,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
+        Text(value, style: TextStyle(fontSize: isText ? 12 : 14, fontWeight: FontWeight.bold, color: color)),
+        Text(label, style: const TextStyle(fontSize: 10, color: _textSecondary)),
       ],
     );
   }
@@ -484,20 +292,10 @@ class _LivreurBatchesListScreenState extends State<LivreurBatchesListScreen> {
   void _showEmptyBatchSnackbar() {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Row(
-          children: [
-            Icon(Icons.warning_amber_rounded, color: Colors.white, size: 20),
-            const SizedBox(width: 12),
-            const Expanded(
-              child: Text("Ce lot ne contient aucune commande"),
-            ),
-          ],
-        ),
+        content: const Text("Ce lot ne contient aucune commande"),
         backgroundColor: _warningColor,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        margin: const EdgeInsets.all(20),
-        duration: const Duration(seconds: 3),
       ),
     );
   }

@@ -3,54 +3,52 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user_model.dart';
 
 class AuthService {
-  // Clé unique pour stocker la chaîne JSON dans le téléphone
   static const String _userKey = 'logged_user';
 
-  /// SAUVEGARDER l'utilisateur (Inscription ou Connexion)
-  /// Cette méthode transforme l'objet User en texte JSON pour SharedPreferences
+  /// Sauvegarde l'objet Utilisateur complet en format JSON dans le stockage local.
+  /// Cette méthode est appelée juste après l'inscription ou la connexion.
   static Future<void> saveUser(User user) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      
-      // Conversion de l'objet User en Map, puis en String JSON
-      final String userJson = jsonEncode(user.toJson());
-      
-      // Stockage permanent sur le disque local
+      // On convertit l'objet User en Map (toJson) puis en String JSON (jsonEncode)
+      String userJson = jsonEncode(user.toJson()); 
       await prefs.setString(_userKey, userJson);
-      print("Utilisateur sauvegardé avec succès en JSON");
     } catch (e) {
-      print("Erreur lors de la sauvegarde de l'utilisateur: $e");
+      print("Erreur lors de la sauvegarde utilisateur: $e");
     }
   }
 
-  /// RÉCUPÉRER l'utilisateur (Vérification au démarrage)
-  /// Lit la chaîne JSON et la retransforme en objet User exploitable par Flutter
+  /// Récupère l'utilisateur actuellement stocké.
+  /// Retourne [User] si trouvé, sinon [null].
   static Future<User?> getUser() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final String? userJson = prefs.getString(_userKey);
+      String? userJson = prefs.getString(_userKey);
+      
+      if (userJson == null || userJson.isEmpty) return null;
 
-      if (userJson != null && userJson.isNotEmpty) {
-        // Décodage du String vers Map, puis Map vers objet User
-        return User.fromJson(jsonDecode(userJson));
-      }
+      // On décode la String en Map puis on reconstruit l'objet User
+      return User.fromJson(jsonDecode(userJson));
     } catch (e) {
-      print("Erreur lors de la récupération de l'utilisateur: $e");
+      print("Erreur lors de la récupération utilisateur: $e");
+      return null;
     }
-    return null;
   }
 
-  /// VÉRIFIER si un utilisateur est déjà connecté
+  /// Vérifie rapidement si un utilisateur est déjà connecté.
   static Future<bool> isLoggedIn() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.containsKey(_userKey);
   }
 
-  /// DÉCONNEXION
-  /// Supprime le fichier JSON virtuel de la mémoire
-  static Future<void> logout() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_userKey);
-    print("Session utilisateur supprimée");
+  /// Supprime les données de l'utilisateur du stockage local (Déconnexion).
+  static Future<bool> logout() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return await prefs.remove(_userKey);
+    } catch (e) {
+      print("Erreur lors de la déconnexion: $e");
+      return false;
+    }
   }
 }

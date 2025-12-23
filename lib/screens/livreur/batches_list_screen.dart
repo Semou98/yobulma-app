@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:yoboulma_app/models/batch_model.dart';
-import 'package:yoboulma_app/services/auth_service.dart'; // Import pour la déconnexion
+import 'package:yoboulma_app/services/auth_service.dart';
 import '../../data/mock_data.dart';
 import 'batch_detail_screen.dart';
 
@@ -8,294 +8,294 @@ class LivreurBatchesListScreen extends StatefulWidget {
   const LivreurBatchesListScreen({super.key});
 
   @override
-  State<LivreurBatchesListScreen> createState() =>
-      _LivreurBatchesListScreenState();
+  State<LivreurBatchesListScreen> createState() => _LivreurBatchesListScreenState();
 }
 
 class _LivreurBatchesListScreenState extends State<LivreurBatchesListScreen> {
-  // Charte graphique
-  static const Color _primaryColor = Color(0xFFEE8E42); // Orange
-  static const Color _secondaryColor = Color(0xFF23529C); // Bleu
-  static const Color _backgroundColor = Colors.white;
-  static const Color _textPrimary = Color(0xFF111827);
-  static const Color _textSecondary = Color(0xFF6B7280);
-  static const Color _borderColor = Color(0xFFE5E7EB);
-  static const Color _cardColor = Color(0xFFF9FAFB);
-  static const Color _successColor = Color(0xFF10B981);
-  static const Color _warningColor = Color(0xFFF59E0B);
+  // --- CHARTE GRAPHIQUE ---
+  final Color _primaryColor = const Color(0xFFEE8E42);
+  final Color _secondaryColor = const Color(0xFF23529C);
+  final Color _backgroundColor = const Color(0xFFF8F9FE);
+  final Color _textPrimary = const Color(0xFF1A1C1E);
+  final Color _textSecondary = const Color(0xFF74777F);
+  final Color _cardColor = Colors.white;
+  final Color _successColor = const Color(0xFF27AE60);
 
-  List<Batch> activeBatches = MockData.batches;
+  List<Batch> activeBatches = [];
   bool _isRefreshing = false;
 
-  // --- LOGIQUE DE DÉCONNEXION ---
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  void _loadData() {
+    setState(() {
+      activeBatches = MockData.batches;
+    });
+  }
+
   void _handleLogout() {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text("Déconnexion", style: TextStyle(fontWeight: FontWeight.bold, color: _secondaryColor)),
-        content: const Text("Voulez-vous vraiment vous déconnecter ?"),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: const Text("Déconnexion", style: TextStyle(fontWeight: FontWeight.bold)),
+        content: const Text("Souhaitez-vous vraiment quitter votre session ?"),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text("Annuler", style: TextStyle(color: _textSecondary)),
+            child: Text("Rester", style: TextStyle(color: _secondaryColor)),
           ),
           ElevatedButton(
             onPressed: () async {
-              await AuthService.logout(); // Supprime l'utilisateur en local
+              await AuthService.logout();
               if (!mounted) return;
-              // Retour à l'écran de login et efface tout l'historique de navigation
               Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.redAccent,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              backgroundColor: Colors.red.shade400,
+              elevation: 0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
-            child: const Text("Déconnexion", style: TextStyle(color: Colors.white)),
+            child: const Text("Déconnecter", style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
     );
-  }
-
-  Future<void> _refreshBatches() async {
-    setState(() => _isRefreshing = true);
-    await Future.delayed(const Duration(milliseconds: 800));
-    setState(() {
-      activeBatches = MockData.batches;
-      _isRefreshing = false;
-    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _backgroundColor,
-      appBar: AppBar(
-        backgroundColor: _backgroundColor,
-        elevation: 0,
-        centerTitle: false,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              "Tournées",
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.w900,
-                color: _textPrimary,
-                letterSpacing: -0.5,
+      body: CustomScrollView(
+        physics: const BouncingScrollPhysics(),
+        slivers: [
+          // APP BAR AVEC VOTRE LOGO
+          SliverAppBar(
+            expandedHeight: 110.0,
+            floating: true,
+            pinned: true,
+            elevation: 0,
+            backgroundColor: _backgroundColor,
+            flexibleSpace: FlexibleSpaceBar(
+              background: Container(color: _backgroundColor),
+              titlePadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              title: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  // LOGO DEPUIS LE CHEMIN SPÉCIFIÉ
+                  Image.asset(
+                    'lib/images/YOBULMA LOGO_Plan de travail 1.png',
+                    height: 35, // Taille ajustée pour l'AppBar
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) => Text(
+                      "YOBOULMA",
+                      style: TextStyle(
+                        color: _secondaryColor, 
+                        fontWeight: FontWeight.bold, 
+                        fontSize: 18
+                      ),
+                    ),
+                  ),
+                  _buildHeaderAction(Icons.logout_rounded, _handleLogout, color: Colors.redAccent),
+                ],
               ),
             ),
-            Text(
-              "${activeBatches.length} lot${activeBatches.length > 1 ? 's' : ''} disponibles",
-              style: TextStyle(fontSize: 14, color: _textSecondary),
+          ),
+
+          // TITRE DE SECTION
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.all(20.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "Tableau de bord",
+                    style: TextStyle(fontSize: 14, color: _textSecondary, fontWeight: FontWeight.w500),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    "Mes tournées",
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: _textPrimary),
+                  ),
+                ],
+              ),
             ),
-          ],
-        ),
-        actions: [
-          IconButton(
-            onPressed: _refreshBatches,
-            icon: const Icon(Icons.refresh_rounded, color: _secondaryColor),
           ),
-          // BOUTON DÉCONNEXION
-          IconButton(
-            onPressed: _handleLogout,
-            icon: const Icon(Icons.logout_rounded, color: Colors.redAccent),
-          ),
-          const SizedBox(width: 8),
-        ],
-      ),
-      body: _isRefreshing
-          ? _buildLoadingState()
-          : activeBatches.isEmpty
-              ? _buildEmptyState()
-              : _buildBatchesList(),
-    );
-  }
 
-  // Les autres widgets (_buildLoadingState, _buildEmptyState, _buildBatchesList, etc.)
-  // restent identiques à votre code initial...
-
-  Widget _buildLoadingState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          SizedBox(
-            width: 60,
-            height: 60,
-            child: CircularProgressIndicator(strokeWidth: 3, color: _secondaryColor),
-          ),
-          const SizedBox(height: 20),
-          Text(
-            "Chargement des tournées...",
-            style: TextStyle(fontSize: 16, color: _textSecondary, fontWeight: FontWeight.w500),
-          ),
+          // LISTE DES TOURNEES
+          activeBatches.isEmpty
+              ? SliverFillRemaining(child: _buildEmptyState())
+              : SliverPadding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) => _buildModernBatchCard(activeBatches[index]),
+                      childCount: activeBatches.length,
+                    ),
+                  ),
+                ),
         ],
       ),
     );
   }
 
-  Widget _buildEmptyState() {
-    return RefreshIndicator(
-      color: _primaryColor,
-      onRefresh: _refreshBatches,
-      child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        child: SizedBox(
-          height: MediaQuery.of(context).size.height * 0.8,
-          child: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  width: 120,
-                  height: 120,
-                  decoration: BoxDecoration(
-                    color: _cardColor,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: _borderColor, width: 1.5),
-                  ),
-                  child: Icon(Icons.inbox_outlined, size: 60, color: _textSecondary),
-                ),
-                const SizedBox(height: 24),
-                Text("Aucune tournée disponible",
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: _textPrimary)),
-                const SizedBox(height: 32),
-                ElevatedButton.icon(
-                  onPressed: _refreshBatches,
-                  icon: const Icon(Icons.refresh_rounded, color: Colors.white),
-                  label: const Text("Actualiser", style: TextStyle(color: Colors.white)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _secondaryColor,
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildBatchesList() {
-    return RefreshIndicator(
-      color: _primaryColor,
-      onRefresh: _refreshBatches,
-      child: ListView.separated(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-        itemCount: activeBatches.length,
-        separatorBuilder: (context, index) => const SizedBox(height: 16),
-        itemBuilder: (context, index) {
-          final batch = activeBatches[index];
-          final deliveryCount = batch.orderIds.length;
-          final hasOrders = deliveryCount > 0;
-          return _buildBatchCard(batch, hasOrders, deliveryCount);
-        },
-      ),
-    );
-  }
-
-  Widget _buildBatchCard(Batch batch, bool hasOrders, int deliveryCount) {
+  Widget _buildHeaderAction(IconData icon, VoidCallback onTap, {Color? color}) {
     return GestureDetector(
-      onTap: () {
-        if (hasOrders) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => BatchDetailScreen(batch: batch)),
-          );
-        } else {
-          _showEmptyBatchSnackbar();
-        }
-      },
+      onTap: onTap,
       child: Container(
+        padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: _backgroundColor,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: hasOrders ? _borderColor : _warningColor.withOpacity(0.3),
-            width: 1.5,
-          ),
-          boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 12, offset: const Offset(0, 4)),
-          ],
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8)],
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        child: Icon(icon, color: color ?? _secondaryColor, size: 20),
+      ),
+    );
+  }
+
+  Widget _buildModernBatchCard(Batch batch) {
+    final int count = batch.orderIds.length;
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      decoration: BoxDecoration(
+        color: _cardColor,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: _secondaryColor.withOpacity(0.06),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () => Navigator.push(
+              context, 
+              MaterialPageRoute(builder: (_) => BatchDetailScreen(batch: batch))
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
                 children: [
                   Row(
                     children: [
                       Container(
-                        width: 48,
-                        height: 48,
+                        padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: hasOrders ? _secondaryColor.withOpacity(0.1) : _warningColor.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
+                          color: _primaryColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(16),
                         ),
-                        child: Icon(
-                          hasOrders ? Icons.local_shipping_rounded : Icons.error_outline_rounded,
-                          color: hasOrders ? _secondaryColor : _warningColor,
+                        // ICONE DE MOTO (REPLACEMENT)
+                        child: Icon(Icons.two_wheeler_rounded, color: _primaryColor, size: 28),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "LOT #${batch.id}",
+                              style: TextStyle(color: _textSecondary, fontWeight: FontWeight.bold, fontSize: 12),
+                            ),
+                            Text(
+                              batch.quartier,
+                              style: TextStyle(color: _textPrimary, fontSize: 18, fontWeight: FontWeight.w700),
+                            ),
+                          ],
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text("Lot ${batch.id}",
-                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: _textPrimary)),
-                          Text(batch.quartier, style: const TextStyle(fontSize: 14, color: _textSecondary)),
-                        ],
-                      ),
+                      _statusBadge(),
                     ],
                   ),
+                  const Divider(height: 32, thickness: 0.8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      _buildMiniStat(Icons.inventory_2_rounded, "$count Colis"),
+                      _buildMiniStat(Icons.store_rounded, batch.vendorName),
+                      _buildMiniStat(Icons.timer_rounded, "${count * 10} min"),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 52,
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.push(
+                        context, 
+                        MaterialPageRoute(builder: (_) => BatchDetailScreen(batch: batch))
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _secondaryColor,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      ),
+                      child: const Text(
+                        "Détails de la tournée",
+                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                      ),
+                    ),
+                  )
                 ],
               ),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(color: _cardColor, borderRadius: BorderRadius.circular(16)),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    _buildStatItem(icon: Icons.inventory_2_outlined, value: deliveryCount.toString(), label: "Colis", color: _primaryColor),
-                    _buildStatItem(icon: Icons.store_outlined, value: batch.vendorName, label: "Vendeur", color: _secondaryColor, isText: true),
-                    _buildStatItem(icon: Icons.schedule_outlined, value: "${deliveryCount * 15} min", label: "Est.", color: _successColor),
-                  ],
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildStatItem({required IconData icon, required String value, required String label, required Color color, bool isText = false}) {
-    return Column(
+  Widget _statusBadge() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: _successColor.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        "DISPONIBLE",
+        style: TextStyle(color: _successColor, fontWeight: FontWeight.w800, fontSize: 10),
+      ),
+    );
+  }
+
+  Widget _buildMiniStat(IconData icon, String text) {
+    return Row(
       children: [
-        Icon(icon, size: 16, color: color),
-        const SizedBox(height: 6),
-        Text(value, style: TextStyle(fontSize: isText ? 12 : 14, fontWeight: FontWeight.bold, color: color)),
-        Text(label, style: const TextStyle(fontSize: 10, color: _textSecondary)),
+        Icon(icon, size: 16, color: _secondaryColor.withOpacity(0.6)),
+        const SizedBox(width: 6),
+        Text(
+          text,
+          style: TextStyle(color: _textPrimary, fontSize: 13, fontWeight: FontWeight.w600),
+        ),
       ],
     );
   }
 
-  void _showEmptyBatchSnackbar() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text("Ce lot ne contient aucune commande"),
-        backgroundColor: _warningColor,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          // ICONE DE MOTO POUR L'ETAT VIDE
+          Icon(Icons.motorcycle_rounded, size: 80, color: _textSecondary.withOpacity(0.15)),
+          const SizedBox(height: 16),
+          Text(
+            "Aucune tournée assignée",
+            style: TextStyle(color: _textSecondary, fontSize: 16, fontWeight: FontWeight.w500),
+          ),
+        ],
       ),
     );
   }

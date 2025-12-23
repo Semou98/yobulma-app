@@ -11,8 +11,8 @@ class Order {
   final String otp;
   final String trackingLink;
   OrderStatus status;
-  String? batchId;     // Corrigé : Retrait de final
-  String? livreurId;   // Corrigé : Retrait de final
+  String? batchId;     
+  String? livreurId;   
   final DateTime createdAt;
   DateTime updatedAt;
 
@@ -32,16 +32,20 @@ class Order {
     required this.updatedAt,
   });
 
+  // --- CONVERSION JSON POUR LE STOCKAGE ---
+
   factory Order.fromJson(Map<String, dynamic> json) {
     return Order(
       id: json['id'],
       vendeurId: json['vendeurId'],
       clientName: json['clientName'],
       clientPhone: json['clientPhone'],
+      // Assurez-vous que votre modèle Location a aussi un fromJson
       deliveryLocation: Location.fromJson(json['deliveryLocation']),
       colisDescription: json['colisDescription'],
       otp: json['otp'],
       trackingLink: json['trackingLink'],
+      // Utilisation de .name pour la sécurité lors de la lecture de l'enum
       status: OrderStatus.values.byName(json['status']),
       batchId: json['batchId'],
       livreurId: json['livreurId'],
@@ -60,7 +64,7 @@ class Order {
       'colisDescription': colisDescription,
       'otp': otp,
       'trackingLink': trackingLink,
-      'status': status.name,
+      'status': status.name, // On stocke le nom de l'enum en String
       'batchId': batchId,
       'livreurId': livreurId,
       'createdAt': createdAt.toIso8601String(),
@@ -68,11 +72,20 @@ class Order {
     };
   }
 
-  Order copyWith({OrderStatus? status, String? batchId, String? livreurId}) {
+  // --- MÉTHODES UTILITAIRES ---
+
+  /// Permet de créer une nouvelle instance avec des modifications
+  /// Utile pour l'immutabilité si besoin
+  Order copyWith({
+    OrderStatus? status, 
+    String? batchId, 
+    String? livreurId,
+    String? clientName,
+  }) {
     return Order(
       id: id,
       vendeurId: vendeurId,
-      clientName: clientName,
+      clientName: clientName ?? this.clientName,
       clientPhone: clientPhone,
       deliveryLocation: deliveryLocation,
       colisDescription: colisDescription,
@@ -82,10 +95,11 @@ class Order {
       batchId: batchId ?? this.batchId,
       livreurId: livreurId ?? this.livreurId,
       createdAt: createdAt,
-      updatedAt: DateTime.now(),
+      updatedAt: DateTime.now(), // Met à jour automatiquement la date
     );
   }
 
+  /// Met à jour le statut et la date de modification en une seule fois
   void updateStatus(OrderStatus newStatus) {
     status = newStatus;
     updatedAt = DateTime.now();

@@ -19,16 +19,16 @@ android {
         jvmTarget = JavaVersion.VERSION_11.toString()
     }
 
-    defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.yoboulma_app"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
-        versionCode = flutter.versionCode
-        versionName = flutter.versionName
-    }
+defaultConfig {
+    applicationId = "com.example.yoboulma_app"
+    
+    // Remplacez flutter.minSdkVersion par 21
+    minSdk = flutter.minSdkVersion 
+    
+    targetSdk = flutter.targetSdkVersion
+    versionCode = flutter.versionCode
+    versionName = flutter.versionName
+}
 
     buildTypes {
         release {
@@ -41,4 +41,15 @@ android {
 
 flutter {
     source = "../.."
+}
+dependencies {
+    // Force une version compatible avec Gradle 8.7.3
+    constraints {
+        implementation("androidx.activity:activity:1.9.3") {
+            because("Version 1.11.0 requires AGP 8.9.1")
+        }
+        implementation("androidx.activity:activity-ktx:1.9.3") {
+            because("Version 1.11.0 requires AGP 8.9.1")
+        }
+    }
 }

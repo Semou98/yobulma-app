@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-// Imports de l'application
+// Imports des écrans
 import 'package:yoboulma_app/chatbot_khady.dart';
+import 'package:yoboulma_app/screens/auth/splash_screen.dart'; // Import du nouveau Splash
 import 'package:yoboulma_app/screens/auth/login_screen.dart';
 import 'package:yoboulma_app/screens/auth/register_screen.dart';
 import 'package:yoboulma_app/screens/auth/welcome_screen.dart';
@@ -16,23 +17,20 @@ import 'package:yoboulma_app/models/user_model.dart';
 import 'package:yoboulma_app/core/enums.dart';
 
 void main() async {
-  // Indispensable pour initialiser les plugins (SharedPreferences, Firebase, etc.)
+  // Initialisation nécessaire pour SharedPreferences avant le runApp
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Fixer l'orientation de l'écran en portrait
-  await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-  ]);
+  // Fixer l'orientation en portrait uniquement
+  await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
 
-  // 1. Récupération de la session utilisateur stockée
+  // Récupération de l'utilisateur stocké pour savoir où rediriger après le Splash
   User? loggedUser;
   try {
     loggedUser = await AuthService.getUser();
   } catch (e) {
-    debugPrint("Erreur lors de la récupération de l'utilisateur: $e");
+    debugPrint("Erreur session: $e");
   }
 
-  // 2. Lancement de l'application
   runApp(YobulmaApp(initialUser: loggedUser));
 }
 
@@ -46,18 +44,13 @@ class YobulmaApp extends StatelessWidget {
     return MaterialApp(
       title: 'Yobulma',
       debugShowCheckedModeBanner: false,
-
-      // Configuration du thème graphique
       theme: ThemeData(
         useMaterial3: true,
+        fontFamily: 'Roboto',
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFFEE8E42),
-          primary: const Color(0xFFEE8E42),   // Orange
-          secondary: const Color(0xFF23529C), // Bleu
-          tertiary: const Color(0xFF10B981),  // Vert Succès
-          surface: const Color(0xFFF8F9FA),
-          error: const Color(0xFFDC2626),
-          brightness: Brightness.light,
+          primary: const Color(0xFFEE8E42),
+          secondary: const Color(0xFF23529C),
         ),
         scaffoldBackgroundColor: const Color(0xFFF8F9FA),
         appBarTheme: const AppBarTheme(
@@ -66,16 +59,13 @@ class YobulmaApp extends StatelessWidget {
           backgroundColor: Colors.transparent,
         ),
       ),
-
-      // Injection du Chatbot Khady sur tous les écrans via le builder
       builder: (context, child) {
         return KhadyChatWrapper(child: child!);
       },
+      
+      // L'erreur ici disparaîtra une fois le constructeur de SplashScreen mis à jour
+      home: SplashScreen(nextRoute: _getLandingRoute()),
 
-      // Écran de démarrage dynamique
-      home: _getInitialScreen(),
-
-      // Table des routes pour la navigation nommée
       routes: {
         '/welcome': (context) => const WelcomeScreen(),
         '/login': (context) => const LoginScreen(),
@@ -87,25 +77,17 @@ class YobulmaApp extends StatelessWidget {
     );
   }
 
-  /// Logique de détermination de l'écran d'accueil selon le rôle
-  Widget _getInitialScreen() {
-    // Si pas de session active, retour à l'accueil/login
+  String _getLandingRoute() {
     if (initialUser == null || initialUser!.roles.isEmpty) {
-      return const WelcomeScreen();
+      return '/welcome';
     }
 
-    // Récupération du rôle principal (premier de la liste)
     final role = initialUser!.roles.first;
-
     switch (role) {
-      case Role.ADMIN:
-        return const AdminDashboardScreen();
-      case Role.VENDEUR:
-        return const OrderListScreen();
-      case Role.LIVREUR:
-        return const LivreurBatchesListScreen();
-      default:
-        return const WelcomeScreen();
+      case Role.ADMIN: return '/admin';
+      case Role.VENDEUR: return '/vendeur';
+      case Role.LIVREUR: return '/livreur';
+      default: return '/welcome';
     }
   }
 }

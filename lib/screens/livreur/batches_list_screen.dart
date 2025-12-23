@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart'; // Pour le calcul de distance
 import 'package:yoboulma_app/models/batch_model.dart';
-import 'package:yoboulma_app/core/enums.dart';
+import 'package:yoboulma_app/services/auth_service.dart';
 import '../../data/mock_data.dart';
 import 'batch_detail_screen.dart';
 
@@ -9,309 +9,294 @@ class LivreurBatchesListScreen extends StatefulWidget {
   const LivreurBatchesListScreen({super.key});
 
   @override
-  State<LivreurBatchesListScreen> createState() =>
-      _LivreurBatchesListScreenState();
+  State<LivreurBatchesListScreen> createState() => _LivreurBatchesListScreenState();
 }
 
 class _LivreurBatchesListScreenState extends State<LivreurBatchesListScreen> {
-  static const Color _primaryColor = Color(0xFFEE8E42);
-  static const Color _secondaryColor = Color(0xFF23529C);
-  static const Color _textPrimary = Color(0xFF111827);
-  static const Color _textSecondary = Color(0xFF6B7280);
-  static const Color _borderColor = Color(0xFFE5E7EB);
+  // --- CHARTE GRAPHIQUE ---
+  final Color _primaryColor = const Color(0xFFEE8E42);
+  final Color _secondaryColor = const Color(0xFF23529C);
+  final Color _backgroundColor = const Color(0xFFF8F9FE);
+  final Color _textPrimary = const Color(0xFF1A1C1E);
+  final Color _textSecondary = const Color(0xFF74777F);
+  final Color _cardColor = Colors.white;
+  final Color _successColor = const Color(0xFF27AE60);
 
-  // Position fictive du livreur (ex: Centre de Dakar)
-  final LatLng _currentCourierPos = const LatLng(14.6928, -17.4467);
-
-  List<Batch> nearbyBatches = [];
+  List<Batch> activeBatches = [];
+  bool _isRefreshing = false;
 
   @override
   void initState() {
     super.initState();
-    _loadBatches();
+    _loadData();
   }
 
-  // --- LOGIQUE DE FILTRAGE PAR PROXIMITÉ (LES 4 PLUS PROCHES) ---
-  void _loadBatches() {
-    final Distance distanceCalculator = const Distance();
-
-    // 1. Filtrer par statut (Disponible ou En cours)
-    List<Batch> filtered = MockData.batches.where((b) {
-      return b.status == BatchStatus.DISPONIBLE ||
-          b.status == BatchStatus.EN_COURS;
-    }).toList();
-
-    // 2. Calculer la distance pour chaque lot et trier
-    List<Map<String, dynamic>> batchWithDistance = filtered.map((batch) {
-      double dist = 0;
-      if (batch.deliveries.isNotEmpty) {
-        // Distance entre le livreur et la première livraison du lot
-        dist = distanceCalculator.as(
-          LengthUnit.Kilometer,
-          _currentCourierPos,
-          LatLng(
-            batch.deliveries.first.deliveryLocation.latitude ?? 0,
-            batch.deliveries.first.deliveryLocation.longitude ?? 0,
-          ),
-        );
-      }
-      return {'batch': batch, 'distance': dist};
-    }).toList();
-
-    // Trier du plus proche au plus loin
-    batchWithDistance.sort((a, b) => a['distance'].compareTo(b['distance']));
-
+  void _loadData() {
     setState(() {
-      // 3. Prendre uniquement les 4 plus proches
-      nearbyBatches = batchWithDistance
-          .take(4)
-          .map((e) => e['batch'] as Batch)
-          .toList();
+      activeBatches = MockData.batches;
     });
   }
 
-  Future<void> _refreshBatches() async {
-    await Future.delayed(const Duration(milliseconds: 800));
-    _loadBatches();
+  void _handleLogout() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: const Text("Déconnexion", style: TextStyle(fontWeight: FontWeight.bold)),
+        content: const Text("Souhaitez-vous vraiment quitter votre session ?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text("Rester", style: TextStyle(color: _secondaryColor)),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              await AuthService.logout();
+              if (!mounted) return;
+              Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red.shade400,
+              elevation: 0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            child: const Text("Déconnecter", style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              "Tournées à proximité",
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w900,
-                color: _textPrimary,
+      backgroundColor: _backgroundColor,
+      body: CustomScrollView(
+        physics: const BouncingScrollPhysics(),
+        slivers: [
+          // APP BAR AVEC VOTRE LOGO
+          SliverAppBar(
+            expandedHeight: 110.0,
+            floating: true,
+            pinned: true,
+            elevation: 0,
+            backgroundColor: _backgroundColor,
+            flexibleSpace: FlexibleSpaceBar(
+              background: Container(color: _backgroundColor),
+              titlePadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              title: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  // LOGO DEPUIS LE CHEMIN SPÉCIFIÉ
+                  Image.asset(
+                    'lib/images/YOBULMA LOGO_Plan de travail 1.png',
+                    height: 35, // Taille ajustée pour l'AppBar
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) => Text(
+                      "YOBOULMA",
+                      style: TextStyle(
+                        color: _secondaryColor, 
+                        fontWeight: FontWeight.bold, 
+                        fontSize: 18
+                      ),
+                    ),
+                  ),
+                  _buildHeaderAction(Icons.logout_rounded, _handleLogout, color: Colors.redAccent),
+                ],
               ),
             ),
-            Text(
-              "Les 4 lots les plus proches de vous",
-              style: TextStyle(
-                fontSize: 13,
-                color: _textSecondary.withOpacity(0.8),
+          ),
+
+          // TITRE DE SECTION
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.all(20.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "Tableau de bord",
+                    style: TextStyle(fontSize: 14, color: _textSecondary, fontWeight: FontWeight.w500),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    "Mes tournées",
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: _textPrimary),
+                  ),
+                ],
               ),
             ),
-          ],
-        ),
-      ),
-      body: RefreshIndicator(
-        onRefresh: _refreshBatches,
-        color: _primaryColor,
-        child: nearbyBatches.isEmpty
-            ? _buildEmptyState()
-            : ListView.separated(
-                padding: const EdgeInsets.all(20),
-                itemCount: nearbyBatches.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 16),
-                itemBuilder: (context, index) =>
-                    _buildBatchCard(nearbyBatches[index]),
-              ),
+          ),
+
+          // LISTE DES TOURNEES
+          activeBatches.isEmpty
+              ? SliverFillRemaining(child: _buildEmptyState())
+              : SliverPadding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) => _buildModernBatchCard(activeBatches[index]),
+                      childCount: activeBatches.length,
+                    ),
+                  ),
+                ),
+        ],
       ),
     );
   }
 
-  Widget _buildBatchCard(Batch batch) {
+  Widget _buildHeaderAction(IconData icon, VoidCallback onTap, {Color? color}) {
     return GestureDetector(
-      onTap: () async {
-        final result = await Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => BatchDetailScreen(batch: batch),
-          ),
-        );
-
-        if (result == 'completed') {
-          _loadBatches();
-          _showSuccessSnackbar();
-        }
-      },
+      onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: _borderColor),
-          boxShadow: [
-            BoxShadow(
-              color: _secondaryColor.withOpacity(0.04),
-              blurRadius: 15,
-              offset: const Offset(0, 8),
-            ),
-          ],
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8)],
         ),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: _secondaryColor.withOpacity(0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.local_shipping_rounded,
-                    color: _secondaryColor,
-                    size: 24,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+        child: Icon(icon, color: color ?? _secondaryColor, size: 20),
+      ),
+    );
+  }
+
+  Widget _buildModernBatchCard(Batch batch) {
+    final int count = batch.orderIds.length;
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      decoration: BoxDecoration(
+        color: _cardColor,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: _secondaryColor.withOpacity(0.06),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () => Navigator.push(
+              context, 
+              MaterialPageRoute(builder: (_) => BatchDetailScreen(batch: batch))
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                children: [
+                  Row(
                     children: [
-                      Text(
-                        "Lot #${batch.id}",
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 16,
-                          color: _textPrimary,
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: _primaryColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        // ICONE DE MOTO (REPLACEMENT)
+                        child: Icon(Icons.two_wheeler_rounded, color: _primaryColor, size: 28),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "LOT #${batch.id}",
+                              style: TextStyle(color: _textSecondary, fontWeight: FontWeight.bold, fontSize: 12),
+                            ),
+                            Text(
+                              batch.quartier,
+                              style: TextStyle(color: _textPrimary, fontSize: 18, fontWeight: FontWeight.w700),
+                            ),
+                          ],
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        batch.quartier,
-                        style: const TextStyle(
-                          color: _textSecondary,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
+                      _statusBadge(),
                     ],
                   ),
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      "${batch.deliveryFee.toInt()} FCFA",
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w900,
-                        color: _primaryColor,
-                        fontSize: 15,
+                  const Divider(height: 32, thickness: 0.8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      _buildMiniStat(Icons.inventory_2_rounded, "$count Colis"),
+                      _buildMiniStat(Icons.store_rounded, batch.vendorName),
+                      _buildMiniStat(Icons.timer_rounded, "${count * 10} min"),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 52,
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.push(
+                        context, 
+                        MaterialPageRoute(builder: (_) => BatchDetailScreen(batch: batch))
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _secondaryColor,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      ),
+                      child: const Text(
+                        "Détails de la tournée",
+                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    _buildStatusBadge(batch.status),
-                  ],
-                ),
-              ],
+                  )
+                ],
+              ),
             ),
-            const Divider(height: 24),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    const Icon(
-                      Icons.inventory_2_outlined,
-                      size: 16,
-                      color: _textSecondary,
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      "${batch.orderIds.length} colis",
-                      style: const TextStyle(
-                        color: _textSecondary,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ],
-                ),
-                const Row(
-                  children: [
-                    Text(
-                      "Détails",
-                      style: TextStyle(
-                        color: _secondaryColor,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                      ),
-                    ),
-                    Icon(
-                      Icons.chevron_right_rounded,
-                      color: _secondaryColor,
-                      size: 20,
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildStatusBadge(BatchStatus status) {
-    bool isAvailable = status == BatchStatus.DISPONIBLE;
+  Widget _statusBadge() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: (isAvailable ? Colors.green : _primaryColor).withOpacity(0.1),
-        borderRadius: BorderRadius.circular(8),
+        color: _successColor.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Text(
-        isAvailable ? "Disponible" : "En cours",
-        style: TextStyle(
-          color: isAvailable ? Colors.green : _primaryColor,
-          fontSize: 10,
-          fontWeight: FontWeight.bold,
-        ),
+        "DISPONIBLE",
+        style: TextStyle(color: _successColor, fontWeight: FontWeight.w800, fontSize: 10),
       ),
+    );
+  }
+
+  Widget _buildMiniStat(IconData icon, String text) {
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: _secondaryColor.withOpacity(0.6)),
+        const SizedBox(width: 6),
+        Text(
+          text,
+          style: TextStyle(color: _textPrimary, fontSize: 13, fontWeight: FontWeight.w600),
+        ),
+      ],
     );
   }
 
   Widget _buildEmptyState() {
-    return SingleChildScrollView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      child: Container(
-        height: MediaQuery.of(context).size.height * 0.7,
-        alignment: Alignment.center,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.explore_outlined,
-              size: 80,
-              color: _textSecondary.withOpacity(0.2),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              "Aucun lot à proximité",
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 18,
-                color: _textPrimary,
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              "Tirez vers le bas pour actualiser",
-              style: TextStyle(color: _textSecondary),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showSuccessSnackbar() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text("Tournée terminée avec succès !"),
-        backgroundColor: Colors.green,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          // ICONE DE MOTO POUR L'ETAT VIDE
+          Icon(Icons.motorcycle_rounded, size: 80, color: _textSecondary.withOpacity(0.15)),
+          const SizedBox(height: 16),
+          Text(
+            "Aucune tournée assignée",
+            style: TextStyle(color: _textSecondary, fontSize: 16, fontWeight: FontWeight.w500),
+          ),
+        ],
       ),
     );
   }

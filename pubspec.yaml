@@ -14,7 +14,8 @@ dependencies:
   webview_flutter_wkwebview: ^3.9.4
   desktop_webview_window: ^0.2.3
   flutter_markdown: ^0.6.18+1
-
+  url_launcher: ^6.2.0
+  
   cupertino_icons: ^1.0.8
   shared_preferences: ^2.5.3
   http: ^1.6.0
@@ -26,10 +27,15 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
-
+  flutter_launcher_icons: "^0.13.1"
   flutter_lints: ^5.0.0
 
 flutter:
   uses-material-design: true
   assets:
     - lib/images/
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "lib/images/YOBULMA LOGO_Plan de travail 1.png"
+  min_sdk_android: 21 # compatible avec la plupart des téléphones

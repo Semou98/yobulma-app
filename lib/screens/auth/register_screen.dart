@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:yoboulma_app/screens/livreur/batches_list_screen.dart';
 import 'dart:io';
+import 'package:url_launcher/url_launcher.dart'; 
 import 'package:yoboulma_app/services/auth_service.dart';
-import 'package:yoboulma_app/screens/vendeur/orders_list_screen.dart';
+import 'package:yoboulma_app/screens/auth/login_screen.dart'; 
 import '../../models/user_model.dart';
 import '../../core/enums.dart';
 
@@ -28,12 +28,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Role _selectedRole = Role.VENDEUR;
   bool _isLoading = false;
   bool _obscurePassword = true;
-  bool _acceptPolicy = false;
+
+  // Séparation des conditions Vendeur pour acceptation individuelle
+  bool _acceptSellerPolicy1 = false;
+  bool _acceptSellerPolicy2 = false;
   
+  bool _acceptLivreurData = false;
+  bool _acceptLivreurContract = false;
+
+  File? _profilePhoto;
   File? _idPhoto;
   File? _greyCardPhoto;
 
-  // --- DESIGN ---
   static const Color _primaryOrange = Color(0xFFEE8E42);
   static const Color _secondaryBlue = Color(0xFF23529C);
   static const Color _inputFill = Color(0xFFF8F9FB);
@@ -50,104 +56,67 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
 
-  // --- VALIDATIONS ---
-  bool _isValidCNI(String input) => RegExp(r'^\d{17}$').hasMatch(input);
-  
-  bool _isValidGreyCard(String input) {
-    // Format: DK 1234 AB ou AA 1234 BC
-    return RegExp(r'^[A-Z]{2}\s\d{4}\s[A-Z]{2}$').hasMatch(input.toUpperCase());
-  }
-
-  Future<void> _pickImage(bool isIdPhoto) async {
-    try {
-      final ImagePicker picker = ImagePicker();
-      final XFile? image = await picker.pickImage(
-        source: ImageSource.gallery,
-        imageQuality: 70, 
-      );
-
-      if (image != null) {
-        setState(() {
-          if (isIdPhoto) {
-            _idPhoto = File(image.path);
-          } else {
-            _greyCardPhoto = File(image.path);
-          }
-        });
-      }
-    } catch (e) {
-      _showErrorSnackBar("Erreur lors de l'ouverture de la galerie.");
-    }
-  }
-
   void _handleRegister() async {
-    // Validation de base
-    if (_nameController.text.trim().isEmpty || _phoneController.text.trim().isEmpty) {
-      _showErrorSnackBar("Veuillez remplir les champs obligatoires.");
+    if (_profilePhoto == null) {
+      _showErrorSnackBar("Veuillez ajouter une photo de profil.");
       return;
     }
-
-    if (_passwordController.text.length < 6) {
-      _showErrorSnackBar("Le mot de passe doit faire au moins 6 caractères.");
-      return;
+    
+    if (_selectedRole == Role.VENDEUR) {
+      if (!_acceptSellerPolicy1 || !_acceptSellerPolicy2) {
+        _showErrorSnackBar("Veuillez accepter toutes les conditions de vente.");
+        return;
+      }
     }
 
-    if (_passwordController.text != _confirmPasswordController.text) {
-      _showErrorSnackBar("Les mots de passe ne correspondent pas.");
+    if (_selectedRole == Role.LIVREUR && (!_acceptLivreurData || !_acceptLivreurContract)) {
+      _showErrorSnackBar("Veuillez accepter les contrats livreur.");
       return;
-    }
-
-    // Validation spécifique Livreur
-    if (_selectedRole == Role.LIVREUR) {
-      if (!_isValidCNI(_idNumberController.text.trim())) {
-        _showErrorSnackBar("La CNI doit comporter exactement 17 chiffres.");
-        return;
-      }
-      if (!_isValidGreyCard(_greyCardController.text.trim())) {
-        _showErrorSnackBar("Format Carte Grise invalide (ex: DK 1234 AB).");
-        return;
-      }
-      if (_idPhoto == null || _greyCardPhoto == null) {
-        _showErrorSnackBar("Veuillez charger les photos des documents.");
-        return;
-      }
-      if (!_acceptPolicy) {
-        _showErrorSnackBar("Veuillez accepter la charte de sécurité.");
-        return;
-      }
     }
 
     setState(() => _isLoading = true);
 
     try {
+      final now = DateTime.now();
       final newUser = User(
-        id: "USR-${DateTime.now().millisecondsSinceEpoch}",
+        id: "USR-${now.millisecondsSinceEpoch}",
         name: _nameController.text.trim(),
         phoneNumber: _phoneController.text.trim(),
         email: _emailController.text.trim().isEmpty ? null : _emailController.text.trim(),
         roles: [_selectedRole],
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
+        createdAt: now,
+        updatedAt: now,
       );
 
       await AuthService.saveUser(newUser);
+      
+      // On déconnecte pour forcer la validation admin
+      await AuthService.logout(); 
 
       if (!mounted) return;
       setState(() => _isLoading = false);
 
-      Widget nextScreen = (_selectedRole == Role.LIVREUR) 
-          ? const LivreurBatchesListScreen() 
-          : const OrderListScreen();
-
       Navigator.pushAndRemoveUntil(
         context,
-        MaterialPageRoute(builder: (_) => nextScreen),
+        MaterialPageRoute(builder: (_) => const RegistrationPendingScreen()),
         (route) => false,
       );
 
     } catch (e) {
       setState(() => _isLoading = false);
       _showErrorSnackBar("Erreur lors de la création du compte.");
+    }
+  }
+
+  Future<void> _pickImage(String type) async {
+    final picker = ImagePicker();
+    final image = await picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
+    if (image != null) {
+      setState(() {
+        if (type == 'profile') _profilePhoto = File(image.path);
+        if (type == 'id') _idPhoto = File(image.path);
+        if (type == 'greyCard') _greyCardPhoto = File(image.path);
+      });
     }
   }
 
@@ -159,43 +128,72 @@ class _RegisterScreenState extends State<RegisterScreen> {
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               const SizedBox(height: 20),
-              // --- LOGO ---
-              Image.asset(
-                'lib/images/YOBULMA LOGO_Plan de travail 1.png',
-                height: 80,
-                fit: BoxFit.contain,
-              ),
-              const SizedBox(height: 20),
-              const Text("Rejoignez Nous", 
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: _secondaryBlue)),
-              const SizedBox(height: 30),
               
+              // LOGO CLIQUABLE VERS CONNEXION
+              GestureDetector(
+                onTap: () {
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(builder: (_) => const LoginScreen()),
+                  );
+                },
+                child: Image.asset(
+                  'lib/images/YOBULMA LOGO_Plan de travail 1.png',
+                  height: 60,
+                ),
+              ),
+
+              const SizedBox(height: 20),
+              _buildProfilePicker(),
+              const SizedBox(height: 20),
               _buildRoleSelector(),
               const SizedBox(height: 32),
-              
-              _buildSectionTitle("Informations de connexion"),
+
+              _buildSectionTitle("Informations personnelles"),
               _buildInputField(_nameController, "Nom complet", Icons.person_outline),
               _buildInputField(_phoneController, "Téléphone", Icons.phone_android_outlined, keyboardType: TextInputType.phone),
-              _buildInputField(_emailController, "Email (optionnel)", Icons.alternate_email),
+              _buildInputField(_emailController, "Email", Icons.alternate_email),
               _buildInputField(_passwordController, "Mot de passe", Icons.lock_outline, isPassword: true),
               _buildInputField(_confirmPasswordController, "Confirmer le mot de passe", Icons.lock_reset, isPassword: true),
 
               if (_selectedRole == Role.LIVREUR) ...[
                 const SizedBox(height: 24),
-                _buildSectionTitle("Vérification d'identité"),
+                _buildSectionTitle("Documents du livreur"),
                 _buildInputField(_idNumberController, "N° CNI (17 chiffres)", Icons.badge_outlined, keyboardType: TextInputType.number),
-                _buildFilePicker("Photo CNI rectos/verso", Icons.camera_alt_outlined, _idPhoto, () => _pickImage(true)),
+                _buildFilePicker("Photo CNI", Icons.camera_alt_outlined, _idPhoto, () => _pickImage('id')),
+                _buildInputField(_greyCardController, "Immatriculation", Icons.motorcycle),
+                _buildFilePicker("Photo Carte Grise", Icons.image_outlined, _greyCardPhoto, () => _pickImage('greyCard')),
                 
-                const SizedBox(height: 10),
-                _buildSectionTitle("Véhicule"),
-                _buildInputField(_greyCardController, "Immatriculation (ex: DK 1234 AB)", Icons.motorcycle),
-                _buildFilePicker("Photo Carte Grise", Icons.image_outlined, _greyCardPhoto, () => _pickImage(false)),
-                
-                _buildSecurityNotice(),
-                _buildPolicyCheckbox(),
+                _buildLegalBlock(
+                  title: "Sécurité et Protection de vos Données",
+                  text: "Pour rejoindre le réseau YOBULMA, nous devons vérifier votre identité. Les informations collectées (Nom, CNI, Photo) sont stockées de manière sécurisée et ne sont utilisées que pour garantir la confiance entre vous et les vendeurs. En tant que plateforme de mise en relation, nous conservons ces données pour assurer un suivi précis de chaque mission. En cas dincident ou de litige, ces informations constituent une garantie de transparence pour toutes les parties.Vous acceptez que YOBULMA traite ces données conformément à sa politique de confidentialité.",
+                  value: _acceptLivreurData,
+                  onChanged: (v) => setState(() => _acceptLivreurData = v!),
+                ),
+                _buildLegalBlock(
+                  title: "Contrat de Partenariat YOBULMA",
+                  text: "YOBULMA agit exclusivement comme intermédiaire technique vous mettant en relation avec des vendeurs. Vous restez un prestataire indépendant responsable de l'exécution de vos courses.Responsabilité et Intégrité : Vous vous engagez à livrer les colis dans leur état d'origine. YOBULMA n'est pas responsable des vols ou dommages, mais en cas de litige, la plateforme coopérera pleinement avec les autorités. Vos données d'identité et votre historique de tracking GPS seront transmis pour toute poursuite judiciaire nécessaire.Sécurisation OTP : La saisie du code OTP client est obligatoire pour clôturer une mission. Elle constitue la preuve légale de votre livraison.Commissions : Pour chaque course réussie, YOBULMA prélève une commission de 5% sur le tarif affiché.Je reconnais avoir pris connaissance du rôle de YOBULMA et j'accepte d'exercer mon activité de livreur avec probité et transparence",
+                  value: _acceptLivreurContract,
+                  onChanged: (v) => setState(() => _acceptLivreurContract = v!),
+                ),
+              ],
+
+              if (_selectedRole == Role.VENDEUR) ...[
+                const SizedBox(height: 20),
+                _buildLegalBlock(
+                  title: "Engagement de Responsabilité du Vendeur",
+                  text: "YOBULMA agit exclusivement en tant que plateforme de mise en relation entre vendeurs et livreurs. En utilisant nos services, vous reconnaissez être l'unique responsable du contenu de vos colis. Il est strictement interdit de transporter des produits illicites (drogues, armes, contrefaçons) selon la loi sénégalaise. Vous certifiez que votre envoi est conforme à la législation en vigueur et dégagez expressément YOBULMA de toute responsabilité pénale liée au contenu du colis transporté.",
+                  value: _acceptSellerPolicy1,
+                  onChanged: (v) => setState(() => _acceptSellerPolicy1 = v!),
+                ),
+                _buildLegalBlock(
+                  title: "Garantie de Transparence et Suivi",
+                  text: "Bien que la plateforme ne soit pas directement responsable des actes de tiers, elle s'engage dans une démarche de responsabilité solidaire en cas d'incident. Grâce à la collecte rigoureuse de l'identité et au tracking GPS de chaque prestataire, YOBULMA garantit la transmission immédiate de toutes les preuves et informations nécessaires aux autorités compétentes pour engager des poursuites judiciaires en cas de vol ou d'infraction. Nous mettons la technologie au service de votre sécurité pour assurer la traçabilité totale de vos échanges.",
+                  value: _acceptSellerPolicy2,
+                  onChanged: (v) => setState(() => _acceptSellerPolicy2 = v!),
+                ),
               ],
 
               const SizedBox(height: 40),
@@ -208,32 +206,26 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  // --- COMPOSANTS UI ---
-
-  Widget _buildSecurityNotice() {
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 16),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.red.shade50,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.red.shade100),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildProfilePicker() {
+    return GestureDetector(
+      onTap: () => _pickImage('profile'),
+      child: Stack(
         children: [
-          Row(
-            children: [
-              Icon(Icons.gavel, size: 16, color: Colors.red.shade700),
-              const SizedBox(width: 8),
-              Text("RÈGLES DE SÉCURITÉ", 
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.red.shade700)),
-            ],
+          CircleAvatar(
+            radius: 50,
+            backgroundColor: _inputFill,
+            backgroundImage: _profilePhoto != null ? FileImage(_profilePhoto!) : null,
+            child: _profilePhoto == null 
+                ? const Icon(Icons.person, size: 50, color: Colors.grey) 
+                : null,
           ),
-          const SizedBox(height: 8),
-          const Text(
-            "Tout vol, détournement ou dégradation volontaire de colis entraînera des poursuites judiciaires immédiates et le bannissement définitif. Vous êtes responsable du lot dès sa récupération.",
-            style: TextStyle(fontSize: 11, color: Colors.black87),
+          Positioned(
+            bottom: 0, right: 0,
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: const BoxDecoration(color: _primaryOrange, shape: BoxShape.circle),
+              child: const Icon(Icons.camera_alt, color: Colors.white, size: 20),
+            ),
           ),
         ],
       ),
@@ -284,20 +276,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
         controller: controller,
         obscureText: isPassword ? _obscurePassword : false,
         keyboardType: keyboardType,
-        style: const TextStyle(fontSize: 15),
         decoration: InputDecoration(
           hintText: hint,
           prefixIcon: Icon(icon, color: _secondaryBlue, size: 20),
-          suffixIcon: isPassword 
-              ? IconButton(
-                  icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility, color: Colors.grey),
-                  onPressed: () => setState(() => _obscurePassword = !_obscurePassword))
-              : null,
           filled: true,
           fillColor: _inputFill,
-          contentPadding: const EdgeInsets.symmetric(vertical: 18),
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
-          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: _secondaryBlue, width: 1)),
         ),
       ),
     );
@@ -308,28 +292,41 @@ class _RegisterScreenState extends State<RegisterScreen> {
       padding: const EdgeInsets.only(bottom: 12),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
         child: Container(
           padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: _inputFill, 
-            borderRadius: BorderRadius.circular(14), 
-            border: Border.all(color: file != null ? _primaryOrange : Colors.transparent)
-          ),
+          decoration: BoxDecoration(color: _inputFill, borderRadius: BorderRadius.circular(14)),
           child: Row(
             children: [
-              Icon(icon, color: _secondaryBlue, size: 20),
+              Icon(icon, color: _secondaryBlue),
               const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  file != null ? "Document chargé avec succès" : label, 
-                  style: TextStyle(color: file != null ? _primaryOrange : Colors.grey.shade600, fontSize: 13)
-                ),
-              ),
-              Icon(file != null ? Icons.check_circle : Icons.add_a_photo_outlined, color: file != null ? _primaryOrange : Colors.grey, size: 20),
+              Text(file != null ? "Document chargé" : label, style: const TextStyle(fontSize: 13)),
+              const Spacer(),
+              Icon(file != null ? Icons.check_circle : Icons.add_a_photo, color: file != null ? _primaryOrange : Colors.grey),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildLegalBlock({required String title, required String text, required bool value, required ValueChanged<bool?> onChanged}) {
+    return Container(
+      margin: const EdgeInsets.only(top: 16),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(color: _inputFill, borderRadius: BorderRadius.circular(12)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: _secondaryBlue)),
+          const SizedBox(height: 4),
+          Text(text, style: const TextStyle(fontSize: 10, color: Colors.black54)),
+          Row(
+            children: [
+              Checkbox(value: value, onChanged: onChanged, activeColor: _secondaryBlue),
+              const Text("J'accepte", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -338,56 +335,98 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return Align(
       alignment: Alignment.centerLeft,
       child: Padding(
-        padding: const EdgeInsets.only(bottom: 12, left: 4),
-        child: Text(title.toUpperCase(), 
-          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: _primaryOrange, letterSpacing: 1.1)),
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Text(title.toUpperCase(), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: _primaryOrange)),
       ),
     );
   }
 
-  Widget _buildPolicyCheckbox() {
-    return Row(
+  Widget _buildSubmitButtons() {
+    return Column(
       children: [
-        Checkbox(
-          value: _acceptPolicy, 
-          activeColor: _secondaryBlue, 
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-          onChanged: (v) => setState(() => _acceptPolicy = v!)
+        SizedBox(
+          width: double.infinity,
+          height: 60,
+          child: ElevatedButton(
+            onPressed: _isLoading ? null : _handleRegister,
+            style: ElevatedButton.styleFrom(backgroundColor: _secondaryBlue, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
+            child: _isLoading ? const CircularProgressIndicator(color: Colors.white) : const Text("Créer mon compte", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
         ),
-        const Expanded(
-          child: Text("Je certifie l'exactitude des infos et j'accepte la charte de sécurité.", 
-            style: TextStyle(fontSize: 12, color: Colors.black54))
+        const SizedBox(height: 12),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text("Annuler", style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.w600)),
         ),
       ],
     );
   }
 
-  Widget _buildSubmitButtons() {
-    return SizedBox(
-      width: double.infinity,
-      height: 60,
-      child: ElevatedButton(
-        onPressed: _isLoading ? null : _handleRegister,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: _secondaryBlue, 
-          elevation: 0,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))
-        ),
-        child: _isLoading 
-            ? const CircularProgressIndicator(color: Colors.white) 
-            : const Text("Créer mon compte", style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-      ),
-    );
+  void _showErrorSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message), backgroundColor: Colors.red));
+  }
+}
+
+class RegistrationPendingScreen extends StatelessWidget {
+  const RegistrationPendingScreen({super.key});
+
+  Future<void> _launchWhatsApp() async {
+    final Uri url = Uri.parse("https://wa.me/221778370001?text=Bonjour Yobulma, je viens de m'inscrire et je souhaite suivre la validation de mon compte.");
+    if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+      debugPrint('Erreur WhatsApp');
+    }
   }
 
-  void _showErrorSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message), 
-        backgroundColor: Colors.red.shade700,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      )
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: Padding(
+        padding: const EdgeInsets.all(30.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.hourglass_top_rounded, size: 80, color: Color(0xFFEE8E42)),
+            const SizedBox(height: 30),
+            const Text(
+              "Demande en cours de traitement",
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF23529C)),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              "votre demande de création de compte est en cour de traitement vous recevrez une notification par email ou par message une fois valider",
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 15, color: Colors.black87, height: 1.5),
+            ),
+            const SizedBox(height: 40),
+            SizedBox(
+              width: double.infinity,
+              height: 55,
+              child: ElevatedButton(
+                onPressed: () {
+                   Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(builder: (_) => const LoginScreen()), 
+                    (route) => false,
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF23529C),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                child: const Text("Se connecter", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              ),
+            ),
+            const SizedBox(height: 15),
+            TextButton.icon(
+              onPressed: _launchWhatsApp,
+              icon: const Icon(Icons.chat, color: Colors.green),
+              label: const Text("Contacter le support WhatsApp", style: TextStyle(color: Colors.green, fontWeight: FontWeight.w600)),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

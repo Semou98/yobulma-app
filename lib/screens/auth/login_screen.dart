@@ -360,11 +360,6 @@ class _LoginScreenState extends State<LoginScreen> {
                 : const Text("Se connecter", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           ),
         ),
-        const SizedBox(height: 12),
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text("Annuler", style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.w600)),
-        ),
         const SizedBox(height: 20),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,

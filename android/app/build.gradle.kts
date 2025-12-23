@@ -23,7 +23,7 @@ defaultConfig {
     applicationId = "com.example.yoboulma_app"
     
     // Remplacez flutter.minSdkVersion par 21
-    minSdk = 21 
+    minSdk = flutter.minSdkVersion 
     
     targetSdk = flutter.targetSdkVersion
     versionCode = flutter.versionCode
@@ -41,4 +41,15 @@ defaultConfig {
 
 flutter {
     source = "../.."
+}
+dependencies {
+    // Force une version compatible avec Gradle 8.7.3
+    constraints {
+        implementation("androidx.activity:activity:1.9.3") {
+            because("Version 1.11.0 requires AGP 8.9.1")
+        }
+        implementation("androidx.activity:activity-ktx:1.9.3") {
+            because("Version 1.11.0 requires AGP 8.9.1")
+        }
+    }
 }
